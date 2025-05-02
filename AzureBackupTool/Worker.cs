@@ -5,14 +5,14 @@ namespace AzureBackupTool;
 public class Worker : BackgroundService
 {
     private readonly ILogger<Worker> _logger;
-    private readonly IOptionsMonitor<List<BackupProfile>> _profilesMonitor;
+    private readonly IOptions<List<BackupProfile>> _profiles;
 
     public Worker(
         ILogger<Worker> logger,
-        IOptionsMonitor<List<BackupProfile>> profilesMonitor)
+        IOptions<List<BackupProfile>> profiles)
     {
         _logger = logger;
-        _profilesMonitor = profilesMonitor;
+        _profiles = profiles;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -22,7 +22,7 @@ public class Worker : BackgroundService
             if (_logger.IsEnabled(LogLevel.Information))
             {
                 _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
-                _logger.LogInformation("Processing {ProfileCount} backup profiles.", _profilesMonitor.CurrentValue.Count);
+                _logger.LogInformation("Processing {ProfileCount} backup profiles.", _profiles.Value.Count);
             }
             await Task.Delay(1000, stoppingToken);
         }
