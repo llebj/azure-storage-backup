@@ -1,5 +1,6 @@
 using System.Formats.Tar;
 using System.IO.Compression;
+using Azure.Storage.Blobs;
 using Microsoft.Extensions.Options;
 
 namespace AzureBackupTool;
@@ -8,13 +9,19 @@ public class Worker : BackgroundService
 {
     private readonly ILogger<Worker> _logger;
     private readonly IOptions<List<BackupProfile>> _profiles;
+    private readonly IOptions<BlobContainerSettings> _blobContainerSettings;
+    private readonly BlobServiceClient _blobServiceClient;
 
     public Worker(
         ILogger<Worker> logger,
-        IOptions<List<BackupProfile>> profiles)
+        IOptions<List<BackupProfile>> profiles,
+        IOptions<BlobContainerSettings> blobContainerSettings,
+        BlobServiceClient blobServiceClient)
     {
         _logger = logger;
         _profiles = profiles;
+        _blobContainerSettings = blobContainerSettings;
+        _blobServiceClient = blobServiceClient;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -48,6 +55,10 @@ public class Worker : BackgroundService
                 await TarFile.CreateFromDirectoryAsync(profile.SearchPath, gz, includeBaseDirectory: false, stoppingToken);
 
                 // Push to Azure
+                var blobContainerClient = _blobServiceClient.GetBlobContainerClient(_blobContainerSettings.Value.Name);
+                var blobClient = blobContainerClient.GetBlobClient(profile.Name);
+                // TODO: Uploaded files are currently empty. Fix.
+                await blobClient.UploadAsync(outputFile, cancellationToken: stoppingToken);
             }
 
             await Task.Delay(1000, stoppingToken);

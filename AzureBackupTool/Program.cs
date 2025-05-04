@@ -1,4 +1,6 @@
+using Azure.Identity;
 using AzureBackupTool;
+using Microsoft.Extensions.Azure;
 
 var builder = Host.CreateApplicationBuilder(args);
 var env = builder.Environment;
@@ -7,14 +9,22 @@ builder.Configuration
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
     .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true);
 
-List<BackupProfile> profiles = [];
-builder.Configuration.GetSection("Profiles").Bind(profiles);
-
-using var factory = LoggerFactory.Create(builder => builder.AddConsole());
-var logger = factory.CreateLogger("Program");
-logger.LogInformation("Loaded {ProfileCount} backup profiles.", profiles.Count);
-
 builder.Services.Configure<List<BackupProfile>>(builder.Configuration.GetSection(key: "Profiles"));
+builder.Services.Configure<BlobContainerSettings>(builder.Configuration.GetSection(key: BlobContainerSettings.Key));
+
+builder.Services.AddAzureClients(clientBuilder => 
+{
+    AzureSettings azureSettings = new();
+    builder.Configuration.GetSection(key: AzureSettings.Key).Bind(azureSettings);
+    clientBuilder
+        .AddBlobServiceClient(new Uri(azureSettings.BlobEndpoint))
+        .WithCredential(
+            new ClientSecretCredential(
+                azureSettings.TenantId,
+                azureSettings.ClientId,
+                azureSettings.ClientSecret));
+});
+
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();
