@@ -45,25 +45,22 @@ public class Worker : BackgroundService
                 _logger.LogInformation("Found directory \"{Directory}\".", profile.SearchPath);
 
                 // Archive and zip file
-                // TODO: Perform basic validation on the profile name.
-                var outputFileName = $"{profile.Name}.tar.gz";
-                var outputFile = Path.Join(profile.OutputDirectory, outputFileName);
-                _logger.LogInformation("Writing to \"{Output}\".", outputFile);
-                // This 'FileMode' causes the output file to be overwritten if it already exists.
-                // TODO: Use a temporary file for each backup run that is then removed after it has been uploaded.
-                using FileStream fs = new(outputFile, FileMode.Create, FileAccess.Write);
-                using GZipStream gz = new(fs, CompressionMode.Compress, leaveOpen: true);
+                // TODO: Perform benchmarking and profiling to determine performance of uploading
+                // from memory vs uploading from file.
+                using MemoryStream ms = new();
+                using GZipStream gz = new(ms, CompressionMode.Compress, leaveOpen: true);
                 await TarFile.CreateFromDirectoryAsync(profile.SearchPath, gz, includeBaseDirectory: false, stoppingToken);
                 gz.Close();
-                fs.Close();
+                ms.Position = 0;
 
                 // Push to Azure
-                var blobContainerClient = _blobServiceClient.GetBlobContainerClient(_blobContainerSettings.Value.Name);
-                var blobClient = blobContainerClient.GetBlobClient(outputFileName);
-                _logger.LogInformation("Reading from \"{Output}\" for upload.", outputFile);
-                await blobClient.UploadAsync(outputFile, cancellationToken: stoppingToken);
-
-                File.Delete(outputFile);
+                // TODO: Perform basic validation on the profile name.
+                var blobName = $"{profile.Name}.tar.gz";
+                var blobClient= _blobServiceClient
+                    .GetBlobContainerClient(_blobContainerSettings.Value.Name)
+                    .GetBlobClient(blobName);
+                _logger.LogInformation("Writing blob \"{Output}\".", blobName);
+                await blobClient.UploadAsync(ms, cancellationToken: stoppingToken);
             }
 
             await Task.Delay(1_000_000, stoppingToken);
