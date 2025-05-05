@@ -40,6 +40,7 @@ public class Worker : BackgroundService
                 if (!Directory.Exists(profile.SearchPath))
                 {
                     _logger.LogInformation("Directory \"{Directory}\" does not exist.", profile.SearchPath);
+                    continue;
                 }
                 _logger.LogInformation("Found directory \"{Directory}\".", profile.SearchPath);
 
@@ -53,15 +54,19 @@ public class Worker : BackgroundService
                 using FileStream fs = new(outputFile, FileMode.Create, FileAccess.Write);
                 using GZipStream gz = new(fs, CompressionMode.Compress, leaveOpen: true);
                 await TarFile.CreateFromDirectoryAsync(profile.SearchPath, gz, includeBaseDirectory: false, stoppingToken);
+                gz.Close();
+                fs.Close();
 
                 // Push to Azure
                 var blobContainerClient = _blobServiceClient.GetBlobContainerClient(_blobContainerSettings.Value.Name);
-                var blobClient = blobContainerClient.GetBlobClient(profile.Name);
-                // TODO: Uploaded files are currently empty. Fix.
+                var blobClient = blobContainerClient.GetBlobClient(outputFileName);
+                _logger.LogInformation("Reading from \"{Output}\" for upload.", outputFile);
                 await blobClient.UploadAsync(outputFile, cancellationToken: stoppingToken);
+
+                File.Delete(outputFile);
             }
 
-            await Task.Delay(1000, stoppingToken);
+            await Task.Delay(1_000_000, stoppingToken);
         }
     }
 }
