@@ -1,0 +1,30 @@
+#!/bin/bash
+
+set -e
+
+rg_name="$1"
+# TODO: Move this to a .bicepparam file
+storage_account_name="$2"
+
+if [[ -z "$rg_name" ]]; then
+    echo "Please provide a name for the Azure resource group."
+    exit 1
+fi
+
+if [[ -z "$storage_account_name" ]]; then
+    echo "Please provide a name for the storage account."
+    exit 1
+fi
+
+rg_exists=$(az group list | jq --arg rg_name "$rg_name" 'map(select(.name == $rg_name)) | any')
+
+if [[ $rg_exists = "true" ]]; then
+    echo "Resource group '$rg_name' already exists."
+else
+    echo "Creating resource group '$rg_name'."
+    az group create --name "$rg_name" --output none
+fi
+
+echo "Deploying resources."
+az deployment group create --resource-group "$rg_name" --template-file ../azure/main.bicep --parameters storage_account_name="$storage_account_name" --output none
+echo "Done."
