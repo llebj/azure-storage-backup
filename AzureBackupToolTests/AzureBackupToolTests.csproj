@@ -22,4 +22,8 @@
     </PackageReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\AzureBackupTool\AzureBackupTool.csproj" />
+  </ItemGroup>
+
 </Project>
