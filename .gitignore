@@ -6,6 +6,9 @@
 # Environment specific appsettings files
 appsettings.*.json
 
+# The automatically generated solution file
+azure-storage-backup.sln
+
 # User-specific files
 *.rsuser
 *.suo
