@@ -2,9 +2,9 @@ using AzureBackupTool;
 
 namespace AzureBackupToolTests;
 
-public class InvocationManagerTests
+public class ProfileInvocationScheduleTests
 {
-    public class GivenAnInvocationManagerWithASingleInvocation
+    public class GivenAProfileInvocationScheduleWithASingleInvocation
     {
         public class WhenTheTimeIsBeforeTheInvocation
         {
@@ -13,9 +13,9 @@ public class InvocationManagerTests
             {
                 // Arrange
 
-                Invocation invocation = new("test-profile", DateTimeOffset.UtcNow);
-                InvocationManager invocationManager = new();
-                invocationManager.AddInvocation(invocation);
+                ProfileInvocation invocation = new("test-profile", DateTimeOffset.UtcNow, string.Empty);
+                ProfileInvocationSchedule invocationManager = new();
+                invocationManager.ScheduleInvocation(invocation);
 
                 // Act
                 var invocations = invocationManager.GetPendingInvocations(invocation.InvokeAt.AddHours(-1));
@@ -31,9 +31,9 @@ public class InvocationManagerTests
             public void ThenReturnTheInvocation()
             {
                 // Arrange
-                Invocation invocation = new("test-profile", DateTimeOffset.UtcNow);
-                InvocationManager invocationManager = new();
-                invocationManager.AddInvocation(invocation);
+                ProfileInvocation invocation = new("test-profile", DateTimeOffset.UtcNow, string.Empty);
+                ProfileInvocationSchedule invocationManager = new();
+                invocationManager.ScheduleInvocation(invocation);
 
                 // Act
                 var invocations = invocationManager.GetPendingInvocations(invocation.InvokeAt.AddHours(1));
@@ -46,9 +46,9 @@ public class InvocationManagerTests
             public void ThenTheManagerDoesNotServeTheSameInvocationTwice()
             {
                 // Arrange
-                Invocation invocation = new("test-profile", DateTimeOffset.UtcNow);
-                InvocationManager invocationManager = new();
-                invocationManager.AddInvocation(invocation);
+                ProfileInvocation invocation = new("test-profile", DateTimeOffset.UtcNow, string.Empty);
+                ProfileInvocationSchedule invocationManager = new();
+                invocationManager.ScheduleInvocation(invocation);
 
                 // Act
                 var time = invocation.InvokeAt.AddHours(1);
@@ -62,13 +62,13 @@ public class InvocationManagerTests
             [Fact]
             public void ThenASecondIdenticalInstanceCanBeAddedAndServedAfterTheFirstInstance()
             {
-                Invocation invocation = new("test-profile", DateTimeOffset.UtcNow);
-                InvocationManager invocationManager = new();
-                invocationManager.AddInvocation(invocation);
+                ProfileInvocation invocation = new("test-profile", DateTimeOffset.UtcNow, string.Empty);
+                ProfileInvocationSchedule invocationManager = new();
+                invocationManager.ScheduleInvocation(invocation);
                 _ = invocationManager.GetPendingInvocations(invocation.InvokeAt.AddHours(1));
 
                 // Act
-                invocationManager.AddInvocation(invocation);
+                invocationManager.ScheduleInvocation(invocation);
                 var invocations = invocationManager.GetPendingInvocations(invocation.InvokeAt.AddHours(1));
 
                 // Assert
@@ -82,10 +82,10 @@ public class InvocationManagerTests
             public void ThenOnlyASingleInvocationInstanceIsReturned()
             {
                 // Arrange
-                Invocation invocation = new("test-profile", DateTimeOffset.UtcNow);
-                InvocationManager invocationManager = new();
-                invocationManager.AddInvocation(invocation);
-                invocationManager.AddInvocation(invocation);
+                ProfileInvocation invocation = new("test-profile", DateTimeOffset.UtcNow, string.Empty);
+                ProfileInvocationSchedule invocationManager = new();
+                invocationManager.ScheduleInvocation(invocation);
+                invocationManager.ScheduleInvocation(invocation);
 
                 // Act
                 var invocations = invocationManager.GetPendingInvocations(invocation.InvokeAt.AddHours(1));
@@ -101,13 +101,13 @@ public class InvocationManagerTests
             public void ThenBothInvocationsCanBeRetrieved()
             {
                 // Arrange
-                Invocation invocation = new("profile-one", DateTimeOffset.UtcNow);
-                InvocationManager invocationManager = new();
-                invocationManager.AddInvocation(invocation);
+                ProfileInvocation invocation = new("profile-one", DateTimeOffset.UtcNow, string.Empty);
+                ProfileInvocationSchedule invocationManager = new();
+                invocationManager.ScheduleInvocation(invocation);
 
                 // Act
-                Invocation invocation2 = new("profile-two", invocation.InvokeAt);
-                invocationManager.AddInvocation(invocation2);
+                ProfileInvocation invocation2 = new("profile-two", invocation.InvokeAt, string.Empty);
+                invocationManager.ScheduleInvocation(invocation2);
                 var invocations = invocationManager.GetPendingInvocations(invocation.InvokeAt.AddHours(1));
 
                 // Assert

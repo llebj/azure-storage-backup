@@ -1,12 +1,12 @@
 namespace AzureBackupTool;
 
-public class InvocationManager
+public class ProfileInvocationSchedule
 {
     private readonly Dictionary<string, HashSet<DateTimeOffset>> _dictionary = [];
 
-    private readonly PriorityQueue<Invocation, DateTimeOffset> _queue = new();
+    private readonly PriorityQueue<ProfileInvocation, DateTimeOffset> _queue = new();
 
-    public void AddInvocation(Invocation invocation)
+    public void ScheduleInvocation(ProfileInvocation invocation)
     {
         if (_dictionary.TryGetValue(invocation.ProfileId, out var invocationTimes) 
             && invocationTimes.Contains(invocation.InvokeAt))
@@ -24,10 +24,10 @@ public class InvocationManager
         _queue.Enqueue(invocation, invocation.InvokeAt);
     }
 
-    public List<Invocation> GetPendingInvocations(DateTimeOffset time)
+    public List<ProfileInvocation> GetPendingInvocations(DateTimeOffset time)
     {
-        List<Invocation> result = [];
-        while (_queue.TryPeek(out Invocation invocation, out _) && invocation.InvokeAt <= time)
+        List<ProfileInvocation> result = [];
+        while (_queue.TryPeek(out ProfileInvocation invocation, out _) && invocation.InvokeAt <= time)
         {
             result.Add(_queue.Dequeue());
             _dictionary[invocation.ProfileId].Remove(invocation.InvokeAt);
@@ -41,4 +41,4 @@ public class InvocationManager
     }
 }
 
-public readonly record struct Invocation(string ProfileId, DateTimeOffset InvokeAt);
+public readonly record struct ProfileInvocation(string ProfileId, DateTimeOffset InvokeAt, string SearchPath);

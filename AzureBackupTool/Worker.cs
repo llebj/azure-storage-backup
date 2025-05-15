@@ -11,6 +11,7 @@ public class Worker : BackgroundService
     private readonly IOptions<List<BackupProfile>> _profiles;
     private readonly IOptions<BlobContainerSettings> _blobContainerSettings;
     private readonly BlobServiceClient _blobServiceClient;
+    private readonly ProfileInvocationSchedule _invocationSchedule = new();
 
     public Worker(
         ILogger<Worker> logger,
@@ -28,42 +29,50 @@ public class Worker : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            if (_logger.IsEnabled(LogLevel.Information))
+            var currentTime = DateTimeOffset.Now;
+            _logger.LogInformation("Evaluating {ProfileCount} backup profiles.", _profiles.Value.Count);
+            foreach (var profile in _profiles.Value)
             {
-                _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
-                _logger.LogInformation("Processing {ProfileCount} backup profiles.", _profiles.Value.Count);
+                var invocation = profile.GetNextInvocation(currentTime);
+                _invocationSchedule.ScheduleInvocation(invocation);
             }
 
-            foreach (var profile in _profiles.Value) 
+            var pendingInvocations = _invocationSchedule.GetPendingInvocations(currentTime);
+            _logger.LogInformation("Processing {InvocationCount} pending profile invocations.",pendingInvocations);
+            foreach (var invocation in pendingInvocations) 
             {
+                _logger.LogInformation("Executing the '{InvocationTime}' scheduled invocation of profile '{ProfileName}'.",
+                    invocation.ProfileId,
+                    invocation.InvokeAt);
                 // Read profile file
-                if (!Directory.Exists(profile.SearchPath))
+                if (!Directory.Exists(invocation.SearchPath))
                 {
-                    _logger.LogInformation("Directory \"{Directory}\" does not exist.", profile.SearchPath);
+                    _logger.LogInformation("Directory '{Directory}' does not exist.", invocation.SearchPath);
                     continue;
                 }
-                _logger.LogInformation("Found directory \"{Directory}\".", profile.SearchPath);
+                _logger.LogInformation("Found directory '{Directory}'.", invocation.SearchPath);
 
                 // Archive and zip file
                 // TODO: Perform benchmarking and profiling to determine performance of uploading
                 // from memory vs uploading from file.
                 using MemoryStream ms = new();
                 using GZipStream gz = new(ms, CompressionMode.Compress, leaveOpen: true);
-                await TarFile.CreateFromDirectoryAsync(profile.SearchPath, gz, includeBaseDirectory: false, stoppingToken);
+                await TarFile.CreateFromDirectoryAsync(invocation.SearchPath, gz, includeBaseDirectory: false, stoppingToken);
                 gz.Close();
                 ms.Position = 0;
 
                 // Push to Azure
                 // TODO: Perform basic validation on the profile name.
-                var blobName = $"{profile.Name}.tar.gz";
+                var blobName = $"{invocation.ProfileId}.tar.gz";
                 var blobClient= _blobServiceClient
                     .GetBlobContainerClient(_blobContainerSettings.Value.Name)
                     .GetBlobClient(blobName);
-                _logger.LogInformation("Writing blob \"{Output}\".", blobName);
+                _logger.LogInformation("Writing blob '{Output}'.", blobName);
+                // TODO: Allow blobs to be overwritten. 
                 await blobClient.UploadAsync(ms, cancellationToken: stoppingToken);
             }
 
-            await Task.Delay(1_000_000, stoppingToken);
+            await Task.Delay(1_000, stoppingToken);
         }
     }
 }
