@@ -1,5 +1,11 @@
-param accessTier string = 'Hot'
+param access_tier string = 'Hot'
 param location string = resourceGroup().location
+
+@allowed([
+  'live'
+  'test'
+])
+param policy_definitions string = 'test'
 
 @minLength(3)
 @maxLength(24)
@@ -18,7 +24,7 @@ resource storage_account 'Microsoft.Storage/storageAccounts@2024-01-01' = {
     publicNetworkAccess: 'Enabled'
     minimumTlsVersion: 'TLS1_2'
     allowSharedKeyAccess: true
-    accessTier: accessTier
+    accessTier: access_tier
   }
 }
 
@@ -46,5 +52,86 @@ resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@20
     defaultEncryptionScope: '$account-encryption-key'
     denyEncryptionScopeOverride: false
     publicAccess: 'None'
+  }
+}
+
+resource test_policies 'Microsoft.Storage/storageAccounts/managementPolicies@2021-04-01' = if (policy_definitions == 'test') {
+  name: 'default'
+  parent: storage_account
+  properties: {
+    policy: {
+      rules: [
+        {
+          name: 'delete-old-versions'
+          enabled: true
+          type: 'Lifecycle'
+          definition: {
+            filters: {
+              blobTypes: ['blockBlob']
+            }
+            actions: {
+              version: {
+                delete: {
+                  daysAfterCreationGreaterThan: 7
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+
+resource policies 'Microsoft.Storage/storageAccounts/managementPolicies@2021-04-01' = if (policy_definitions == 'live') {
+  name: 'default'
+  parent: storage_account
+  properties: {
+    policy: {
+      rules: [
+        {
+          name: 'cool-store-versions'
+          enabled: true
+          type: 'Lifecycle'
+          definition: {
+            actions: {
+              version: {
+                tierToCool: {
+                  daysAfterCreationGreaterThan: 7
+                }
+              }
+            }
+          }
+        }
+        {
+          name: 'archive-old-versions'
+          enabled: true
+          type: 'Lifecycle'
+          definition: {
+            actions: {
+              version: {
+                tierToArchive: {
+                  daysAfterCreationGreaterThan: 37
+                }
+              }
+            }
+          }
+        }
+        {
+          name: 'delete-old-versions'
+          enabled: true
+          type: 'Lifecycle'
+          definition: {
+            actions: {
+              version: {
+                delete: {
+                  daysAfterCreationGreaterThan: 365
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
   }
 }

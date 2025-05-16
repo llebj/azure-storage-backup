@@ -9,6 +9,9 @@ appsettings.*.json
 # The automatically generated solution file
 azure-storage-backup.sln
 
+# Bicep parameter files
+*.bicepparam
+
 # User-specific files
 *.rsuser
 *.suo

@@ -30,7 +30,7 @@ public class Worker : BackgroundService
         while (!stoppingToken.IsCancellationRequested)
         {
             var currentTime = DateTimeOffset.Now;
-            _logger.LogInformation("Evaluating {ProfileCount} backup profiles.", _profiles.Value.Count);
+            _logger.LogDebug("Evaluating {ProfileCount} backup profiles.", _profiles.Value.Count);
             foreach (var profile in _profiles.Value)
             {
                 var invocation = profile.GetNextInvocation(currentTime);
@@ -38,19 +38,19 @@ public class Worker : BackgroundService
             }
 
             var pendingInvocations = _invocationSchedule.GetPendingInvocations(currentTime);
-            _logger.LogInformation("Processing {InvocationCount} pending profile invocations.",pendingInvocations);
+            _logger.LogDebug("Processing {InvocationCount} pending profile invocations.", pendingInvocations.Count);
             foreach (var invocation in pendingInvocations) 
             {
                 _logger.LogInformation("Executing the '{InvocationTime}' scheduled invocation of profile '{ProfileName}'.",
-                    invocation.ProfileId,
-                    invocation.InvokeAt);
+                    invocation.InvokeAt,
+                    invocation.ProfileId);
                 // Read profile file
                 if (!Directory.Exists(invocation.SearchPath))
                 {
                     _logger.LogInformation("Directory '{Directory}' does not exist.", invocation.SearchPath);
                     continue;
                 }
-                _logger.LogInformation("Found directory '{Directory}'.", invocation.SearchPath);
+                _logger.LogDebug("Found directory '{Directory}'.", invocation.SearchPath);
 
                 // Archive and zip file
                 // TODO: Perform benchmarking and profiling to determine performance of uploading
@@ -68,8 +68,7 @@ public class Worker : BackgroundService
                     .GetBlobContainerClient(_blobContainerSettings.Value.Name)
                     .GetBlobClient(blobName);
                 _logger.LogInformation("Writing blob '{Output}'.", blobName);
-                // TODO: Allow blobs to be overwritten. 
-                await blobClient.UploadAsync(ms, cancellationToken: stoppingToken);
+                await blobClient.UploadAsync(ms, overwrite: true, cancellationToken: stoppingToken);
             }
 
             await Task.Delay(1_000, stoppingToken);
