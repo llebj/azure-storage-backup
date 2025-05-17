@@ -20,12 +20,16 @@ public class BackupProfile
 
     public string Name { get; set; } = string.Empty;
 
-    public string SearchPath { get; set; } = string.Empty;
+    public SearchDefinition SearchDefinition { get; set; } = new();
 
-    public ProfileInvocation GetNextInvocation(DateTimeOffset currentTime) 
-    {
-        var nextOccurrence = _cronExpression.GetNextOccurrence(currentTime, TimeZoneInfo.Utc) ?? 
-            throw new InvalidOperationException($"The cron expression '{_cron}' does not produce a valid next occurrence at '{currentTime}'.");
-        return new(Name, nextOccurrence, SearchPath);
-    }
+    public DateTimeOffset? GetNextOccurence(DateTimeOffset currentTime) => _cronExpression.GetNextOccurrence(currentTime, TimeZoneInfo.Local);
+}
+
+public class SearchDefinition
+{
+    public string Directory { get; set; } = string.Empty;
+
+    public List<string> IncludePatterns { get; set; } = [];
+
+    public List<string> ExcludePatterns { get; set; } = [];
 }

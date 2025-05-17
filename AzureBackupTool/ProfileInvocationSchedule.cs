@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 namespace AzureBackupTool;
 
 public class ProfileInvocationSchedule
@@ -41,4 +43,6 @@ public class ProfileInvocationSchedule
     }
 }
 
-public readonly record struct ProfileInvocation(string ProfileId, DateTimeOffset InvokeAt, string SearchPath);
+public readonly record struct ProfileInvocation(string ProfileId, DateTimeOffset InvokeAt, InvocationSearchDefinition SearchDefinition);
+
+public readonly record struct InvocationSearchDefinition(string Directory, ImmutableArray<string> IncludePatterns, ImmutableArray<string> ExcludePatterns);

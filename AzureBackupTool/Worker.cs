@@ -1,6 +1,7 @@
 using System.Formats.Tar;
 using System.IO.Compression;
 using Azure.Storage.Blobs;
+using AzureBackupTool.Extensions;
 using Microsoft.Extensions.Options;
 
 namespace AzureBackupTool;
@@ -50,12 +51,12 @@ public class Worker : BackgroundService
                     invocation.InvokeAt,
                     invocation.ProfileId);
                 // Read profile file
-                if (!Directory.Exists(invocation.SearchPath))
+                if (!Directory.Exists(invocation.SearchDefinition.Directory))
                 {
-                    _logger.LogInformation("Directory '{Directory}' does not exist.", invocation.SearchPath);
+                    _logger.LogInformation("Directory '{Directory}' does not exist.", invocation.SearchDefinition.Directory);
                     continue;
                 }
-                _logger.LogDebug("Found directory '{Directory}'.", invocation.SearchPath);
+                _logger.LogDebug("Found directory '{Directory}'.", invocation.SearchDefinition.Directory);
 
                 // Archive and zip file
                 // TODO: Perform basic validation on the profile name.
@@ -65,9 +66,8 @@ public class Worker : BackgroundService
                     new FileStream(Path.Combine(_outputSettings.Value.Path, $"{invocation.ProfileId}.tar.gz"), FileMode.Create) :
                     new MemoryStream();
                 using GZipStream gz = new(stream, CompressionMode.Compress, leaveOpen: true);
-                await TarFile.CreateFromDirectoryAsync(invocation.SearchPath, gz, includeBaseDirectory: false, stoppingToken);
+                await TarFile.CreateFromDirectoryAsync(invocation.SearchDefinition.Directory, gz, includeBaseDirectory: false, stoppingToken);
                 gz.Close();
-
 
                 if (_outputSettings.Value.Type == "fs")
                 {
