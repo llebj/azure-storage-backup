@@ -2,6 +2,7 @@ using System.Formats.Tar;
 using System.IO.Compression;
 using Azure.Storage.Blobs;
 using AzureBackupTool.Extensions;
+using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Options;
 
 namespace AzureBackupTool;
@@ -36,7 +37,7 @@ public class Worker : BackgroundService
         while (!stoppingToken.IsCancellationRequested)
         {
             var currentTime = DateTimeOffset.Now;
-            _logger.LogDebug("Evaluating {ProfileCount} backup profiles.", _profiles.Value.Count);
+            _logger.LogTrace("Evaluating {ProfileCount} backup profiles.", _profiles.Value.Count);
             foreach (var profile in _profiles.Value)
             {
                 var invocation = profile.GetNextInvocation(currentTime);
@@ -44,7 +45,7 @@ public class Worker : BackgroundService
             }
 
             var pendingInvocations = _invocationSchedule.GetPendingInvocations(currentTime);
-            _logger.LogDebug("Processing {InvocationCount} pending profile invocations.", pendingInvocations.Count);
+            _logger.LogTrace("Processing {InvocationCount} pending profile invocations.", pendingInvocations.Count);
             foreach (var invocation in pendingInvocations)
             {
                 _logger.LogInformation("Executing the '{InvocationTime}' scheduled invocation of profile '{ProfileName}'.",
@@ -65,9 +66,7 @@ public class Worker : BackgroundService
                 using Stream stream = _outputSettings.Value.Type == "fs" ?
                     new FileStream(Path.Combine(_outputSettings.Value.Path, $"{invocation.ProfileId}.tar.gz"), FileMode.Create) :
                     new MemoryStream();
-                using GZipStream gz = new(stream, CompressionMode.Compress, leaveOpen: true);
-                await TarFile.CreateFromDirectoryAsync(invocation.SearchDefinition.Directory, gz, includeBaseDirectory: false, stoppingToken);
-                gz.Close();
+                await BuildArchive(stream, invocation.SearchDefinition, stoppingToken);
 
                 if (_outputSettings.Value.Type == "fs")
                 {
@@ -88,6 +87,32 @@ public class Worker : BackgroundService
             }
 
             await Task.Delay(1_000, stoppingToken);
+        }
+    }
+
+    private async ValueTask BuildArchive(Stream stream, InvocationSearchDefinition searchDefinition, CancellationToken cancellationToken)
+    {
+        Matcher matcher = new();
+        matcher.AddIncludePatterns(searchDefinition.IncludePatterns);
+        matcher.AddExcludePatterns(searchDefinition.ExcludePatterns);
+        // TODO: Filter for only regular files
+        IEnumerable<string> matchingFiles = matcher.GetResultsInFullPath(searchDefinition.Directory);
+        if (_logger.IsEnabled(LogLevel.Debug))
+        {
+            _logger.LogDebug("Matched to following files: [{FileNames}]", string.Join(", ", matchingFiles));
+        }
+
+        using GZipStream gz = new(stream, CompressionMode.Compress, leaveOpen: true);
+        using TarWriter writer = new(gz);
+        foreach (var fileName in matchingFiles)
+        {
+            var relativePath = Path.GetRelativePath(searchDefinition.Directory, fileName);
+            using var fileStream = File.OpenRead(fileName);
+            PaxTarEntry entry = new(TarEntryType.RegularFile, relativePath)
+            {
+                DataStream = fileStream
+            };
+            await writer.WriteEntryAsync(entry, cancellationToken);
         }
     }
 }
