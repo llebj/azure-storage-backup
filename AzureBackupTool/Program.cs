@@ -9,8 +9,12 @@ builder.Configuration
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
     .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true);
 
-builder.Services.Configure<List<BackupProfile>>(builder.Configuration.GetSection(key: "Profiles"));
-builder.Services.Configure<OutputSettings>(builder.Configuration.GetSection(key: OutputSettings.Key));
+builder.Services.AddOptions<List<BackupProfile>>()
+    .Bind(builder.Configuration.GetSection(key: "Profiles"));
+builder.Services.AddOptions<OutputSettings>()
+    .Bind(builder.Configuration.GetSection(key: OutputSettings.Key))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 
 builder.Services.AddAzureClients(clientBuilder => 
 {

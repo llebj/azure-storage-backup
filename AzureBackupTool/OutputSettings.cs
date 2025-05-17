@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace AzureBackupTool;
 
 public class OutputSettings
@@ -6,5 +8,6 @@ public class OutputSettings
 
     public string Path { get; set; } = string.Empty;
 
+    [AllowedValues("azure", "fs")]
     public string Type { get; set; } = "azure";
 }
