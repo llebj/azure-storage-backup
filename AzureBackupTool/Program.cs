@@ -10,12 +10,12 @@ builder.Configuration
     .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true);
 
 builder.Services.Configure<List<BackupProfile>>(builder.Configuration.GetSection(key: "Profiles"));
-builder.Services.Configure<BlobContainerSettings>(builder.Configuration.GetSection(key: BlobContainerSettings.Key));
+builder.Services.Configure<OutputSettings>(builder.Configuration.GetSection(key: OutputSettings.Key));
 
 builder.Services.AddAzureClients(clientBuilder => 
 {
-    AzureSettings azureSettings = new();
-    builder.Configuration.GetSection(key: AzureSettings.Key).Bind(azureSettings);
+    BlobServiceClientSettings azureSettings = new();
+    builder.Configuration.GetSection(key: BlobServiceClientSettings.Key).Bind(azureSettings);
     clientBuilder
         .AddBlobServiceClient(new Uri(azureSettings.BlobEndpoint))
         .WithCredential(

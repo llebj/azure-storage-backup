@@ -1,8 +1,8 @@
 namespace AzureBackupTool;
 
-public class AzureSettings
+public class BlobServiceClientSettings
 {
-    public const string Key = "Azure";
+    public const string Key = "BlobServiceClient";
 
     public string BlobEndpoint { get; set; } = string.Empty;
 
