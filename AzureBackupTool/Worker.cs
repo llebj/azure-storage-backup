@@ -10,21 +10,21 @@ namespace AzureBackupTool;
 public class Worker : BackgroundService
 {
     private readonly ILogger<Worker> _logger;
-    private readonly IOptions<List<BackupProfile>> _profiles;
     private readonly IOptions<OutputSettings> _outputSettings;
     private readonly BlobServiceClient _blobServiceClient;
+    private readonly BackupProfileService _backupProfileService;
     private readonly ProfileInvocationSchedule _invocationSchedule = new();
 
     public Worker(
         ILogger<Worker> logger,
-        IOptions<List<BackupProfile>> profiles,
         IOptions<OutputSettings> blobSettings,
-        BlobServiceClient blobServiceClient)
+        BlobServiceClient blobServiceClient,
+        BackupProfileService backupProfileService)
     {
         _logger = logger;
-        _profiles = profiles;
         _outputSettings = blobSettings;
         _blobServiceClient = blobServiceClient;
+        _backupProfileService = backupProfileService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -37,10 +37,8 @@ public class Worker : BackgroundService
         while (!stoppingToken.IsCancellationRequested)
         {
             var currentTime = DateTimeOffset.Now;
-            _logger.LogTrace("Evaluating {ProfileCount} backup profiles.", _profiles.Value.Count);
-            foreach (var profile in _profiles.Value)
+            foreach (var invocation in _backupProfileService.GetInvocations(currentTime))
             {
-                var invocation = profile.GetNextInvocation(currentTime);
                 _invocationSchedule.ScheduleInvocation(invocation);
             }
 
@@ -90,7 +88,7 @@ public class Worker : BackgroundService
         }
     }
 
-    private async ValueTask BuildArchive(Stream stream, InvocationSearchDefinition searchDefinition, CancellationToken cancellationToken)
+    private async ValueTask BuildArchive(Stream stream, ReadOnlySearchDefinition searchDefinition, CancellationToken cancellationToken)
     {
         Matcher matcher = new();
         matcher.AddIncludePatterns(searchDefinition.IncludePatterns);

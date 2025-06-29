@@ -4,6 +4,7 @@ namespace AzureBackupToolTests;
 
 public class ProfileInvocationScheduleTests
 {
+    // TODO: Review the naming of tests in this class.
     public class GivenAProfileInvocationScheduleWithASingleInvocation
     {
         public class WhenTheTimeIsBeforeTheInvocation
@@ -13,7 +14,7 @@ public class ProfileInvocationScheduleTests
             {
                 // Arrange
 
-                ProfileInvocation invocation = new("test-profile", DateTimeOffset.UtcNow, new());
+                ReadOnlyBackupProfileInvocation invocation = new("test-profile", DateTimeOffset.UtcNow, new(), CancellationToken.None);
                 ProfileInvocationSchedule invocationManager = new();
                 invocationManager.ScheduleInvocation(invocation);
 
@@ -31,7 +32,7 @@ public class ProfileInvocationScheduleTests
             public void ThenReturnTheInvocation()
             {
                 // Arrange
-                ProfileInvocation invocation = new("test-profile", DateTimeOffset.UtcNow, new());
+                ReadOnlyBackupProfileInvocation invocation = new("test-profile", DateTimeOffset.UtcNow, new(), CancellationToken.None);
                 ProfileInvocationSchedule invocationManager = new();
                 invocationManager.ScheduleInvocation(invocation);
 
@@ -46,7 +47,7 @@ public class ProfileInvocationScheduleTests
             public void ThenTheManagerDoesNotServeTheSameInvocationTwice()
             {
                 // Arrange
-                ProfileInvocation invocation = new("test-profile", DateTimeOffset.UtcNow, new());
+                ReadOnlyBackupProfileInvocation invocation = new("test-profile", DateTimeOffset.UtcNow, new(), CancellationToken.None);
                 ProfileInvocationSchedule invocationManager = new();
                 invocationManager.ScheduleInvocation(invocation);
 
@@ -62,7 +63,7 @@ public class ProfileInvocationScheduleTests
             [Fact]
             public void ThenASecondIdenticalInstanceCanBeAddedAndServedAfterTheFirstInstance()
             {
-                ProfileInvocation invocation = new("test-profile", DateTimeOffset.UtcNow, new());
+                ReadOnlyBackupProfileInvocation invocation = new("test-profile", DateTimeOffset.UtcNow, new(), CancellationToken.None);
                 ProfileInvocationSchedule invocationManager = new();
                 invocationManager.ScheduleInvocation(invocation);
                 _ = invocationManager.GetPendingInvocations(invocation.InvokeAt.AddHours(1));
@@ -82,7 +83,7 @@ public class ProfileInvocationScheduleTests
             public void ThenOnlyASingleInvocationInstanceIsReturned()
             {
                 // Arrange
-                ProfileInvocation invocation = new("test-profile", DateTimeOffset.UtcNow, new());
+                ReadOnlyBackupProfileInvocation invocation = new("test-profile", DateTimeOffset.UtcNow, new(), CancellationToken.None);
                 ProfileInvocationSchedule invocationManager = new();
                 invocationManager.ScheduleInvocation(invocation);
                 invocationManager.ScheduleInvocation(invocation);
@@ -94,24 +95,44 @@ public class ProfileInvocationScheduleTests
                 Assert.Single(invocations);
             }
         }
-    
+
         public class WhenAnInvocationIsAddedForADifferentProfile
         {
             [Fact]
             public void ThenBothInvocationsCanBeRetrieved()
             {
                 // Arrange
-                ProfileInvocation invocation = new("profile-one", DateTimeOffset.UtcNow, new());
+                ReadOnlyBackupProfileInvocation invocation = new("profile-one", DateTimeOffset.UtcNow, new(), CancellationToken.None);
                 ProfileInvocationSchedule invocationManager = new();
                 invocationManager.ScheduleInvocation(invocation);
 
                 // Act
-                ProfileInvocation invocation2 = new("profile-two", invocation.InvokeAt, new());
+                ReadOnlyBackupProfileInvocation invocation2 = new("profile-two", invocation.InvokeAt, new(), CancellationToken.None);
                 invocationManager.ScheduleInvocation(invocation2);
                 var invocations = invocationManager.GetPendingInvocations(invocation.InvokeAt.AddHours(1));
 
                 // Assert
                 Assert.Equal(2, invocations.Count);
+            }
+        }
+
+        public class WhenTheInvocationIsCancelled
+        {
+            [Fact]
+            public void ThenNoInvocationIsReturned()
+            {
+                // Arrange
+                using CancellationTokenSource cancellationTokenSource = new();
+                ReadOnlyBackupProfileInvocation invocation = new("profile-one", DateTimeOffset.UtcNow, new(), cancellationTokenSource.Token);
+                ProfileInvocationSchedule invocationManager = new();
+                invocationManager.ScheduleInvocation(invocation);
+
+                // Act
+                cancellationTokenSource.Cancel();
+                var invocations = invocationManager.GetPendingInvocations(invocation.InvokeAt.AddHours(1));
+
+                // Assert
+                Assert.Empty(invocations);
             }
         }
     }
