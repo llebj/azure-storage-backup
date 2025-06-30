@@ -29,7 +29,7 @@ builder.Services.AddAzureClients(clientBuilder =>
                 azureSettings.ClientSecret));
 });
 
-builder.Services.AddSingleton<BackupProfileService>();
+builder.Services.AddSingleton<ProfileInvocationSource>();
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();

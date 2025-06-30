@@ -1,7 +1,6 @@
 using System.Formats.Tar;
 using System.IO.Compression;
 using Azure.Storage.Blobs;
-using AzureBackupTool.Extensions;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Options;
 
@@ -12,19 +11,19 @@ public class Worker : BackgroundService
     private readonly ILogger<Worker> _logger;
     private readonly IOptions<OutputSettings> _outputSettings;
     private readonly BlobServiceClient _blobServiceClient;
-    private readonly BackupProfileService _backupProfileService;
+    private readonly ProfileInvocationSource _invocationSource;
     private readonly ProfileInvocationSchedule _invocationSchedule = new();
 
     public Worker(
         ILogger<Worker> logger,
         IOptions<OutputSettings> blobSettings,
         BlobServiceClient blobServiceClient,
-        BackupProfileService backupProfileService)
+        ProfileInvocationSource backupProfileService)
     {
         _logger = logger;
         _outputSettings = blobSettings;
         _blobServiceClient = blobServiceClient;
-        _backupProfileService = backupProfileService;
+        _invocationSource = backupProfileService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -37,7 +36,7 @@ public class Worker : BackgroundService
         while (!stoppingToken.IsCancellationRequested)
         {
             var currentTime = DateTimeOffset.Now;
-            foreach (var invocation in _backupProfileService.GetInvocations(currentTime))
+            foreach (var invocation in _invocationSource.GetInvocations(currentTime))
             {
                 _invocationSchedule.ScheduleInvocation(invocation);
             }

@@ -3,16 +3,16 @@ using Microsoft.Extensions.Options;
 
 namespace AzureBackupToolTests;
 
-public class BackupProfileServiceTests
+public class ProfileInvocationSourceTests
 {
     [Fact]
     public void EmptyInitialConfiguration_ReturnsNoInvocations()
     {
         // Arrange
-        var backupProfileService = new BackupProfileService(new TestOptionsMonitor<List<BackupProfile>>([]));
+        var invocationSource = new ProfileInvocationSource(new TestOptionsMonitor<List<BackupProfile>>([]));
 
         // Act & Assert
-        var invocations = backupProfileService.GetInvocations(DateTime.UtcNow);
+        var invocations = invocationSource.GetInvocations(DateTime.UtcNow);
         Assert.Empty(invocations);
     }
 
@@ -21,7 +21,7 @@ public class BackupProfileServiceTests
     {
         // Arrange
         var optionsMonitor = new TestOptionsMonitor<List<BackupProfile>>([]);
-        var backupProfileService = new BackupProfileService(optionsMonitor);
+        var invocationSource = new ProfileInvocationSource(optionsMonitor);
 
         // Act
         var backupProfile = new BackupProfile
@@ -33,7 +33,7 @@ public class BackupProfileServiceTests
         optionsMonitor.SimulateChange([backupProfile]);
 
         // Assert
-        var invocations = backupProfileService.GetInvocations(DateTime.UtcNow);
+        var invocations = invocationSource.GetInvocations(DateTime.UtcNow);
         Assert.Single(invocations);
         Assert.False(invocations[0].CancellationToken.IsCancellationRequested);
     }
@@ -51,8 +51,8 @@ public class BackupProfileServiceTests
                     SearchDefinition = new()
                 }
             ]);
-        var backupProfileService = new BackupProfileService(optionsMonitor);
-        var invocations = backupProfileService.GetInvocations(DateTime.UtcNow);
+        var invocationSource = new ProfileInvocationSource(optionsMonitor);
+        var invocations = invocationSource.GetInvocations(DateTime.UtcNow);
 
         // Act
         optionsMonitor.SimulateChange([]);
@@ -74,8 +74,8 @@ public class BackupProfileServiceTests
                     SearchDefinition = new()
                 }
             ]);
-        var backupProfileService = new BackupProfileService(optionsMonitor);
-        var initialInvocations = backupProfileService.GetInvocations(DateTime.UtcNow);
+        var invocationSource = new ProfileInvocationSource(optionsMonitor);
+        var initialInvocations = invocationSource.GetInvocations(DateTime.UtcNow);
 
         // Act
         optionsMonitor.SimulateChange(
@@ -87,7 +87,7 @@ public class BackupProfileServiceTests
                     SearchDefinition = new()
                 }
             ]);
-        var subsequentInvocations = backupProfileService.GetInvocations(DateTime.UtcNow);
+        var subsequentInvocations = invocationSource.GetInvocations(DateTime.UtcNow);
 
         // Assert
         Assert.Equal(initialInvocations[0].ProfileId, subsequentInvocations[0].ProfileId);
@@ -108,8 +108,8 @@ public class BackupProfileServiceTests
                     SearchDefinition = new()
                 }
             ]);
-        var backupProfileService = new BackupProfileService(optionsMonitor);
-        var initialInvocations = backupProfileService.GetInvocations(DateTime.UtcNow);
+        var invocationSource = new ProfileInvocationSource(optionsMonitor);
+        var initialInvocations = invocationSource.GetInvocations(DateTime.UtcNow);
 
         // Act
         optionsMonitor.SimulateChange(
@@ -127,7 +127,7 @@ public class BackupProfileServiceTests
                     SearchDefinition = new()
                 }
             ]);
-        var subsequentInvocations = backupProfileService.GetInvocations(DateTime.UtcNow);
+        var subsequentInvocations = invocationSource.GetInvocations(DateTime.UtcNow);
 
         // Assert
         var subsequenInvocation = subsequentInvocations.Single(i => i.ProfileId == "profile-123");

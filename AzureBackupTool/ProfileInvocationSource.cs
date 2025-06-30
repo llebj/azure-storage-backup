@@ -4,7 +4,7 @@ using Microsoft.Extensions.Options;
 
 namespace AzureBackupTool;
 
-public class BackupProfileService : IDisposable
+public class ProfileInvocationSource : IDisposable
 {
     private bool _disposed = false;
     private ImmutableDictionary<string, ReadOnlyBackupProfile> _readonlyBackupProfiles;
@@ -13,7 +13,7 @@ public class BackupProfileService : IDisposable
     private readonly Lock _readonlyBackupProfilesLock = new();
     private readonly CancellationTokenSourceRegistry _ctsRegistry = new();
 
-    public BackupProfileService(
+    public ProfileInvocationSource(
         IOptionsMonitor<List<BackupProfile>> optionsMonitor)
     {
         _optionsMonitor = optionsMonitor;
@@ -61,7 +61,7 @@ public class BackupProfileService : IDisposable
             // Cancel all tokens for profiles that no longer exist.
             foreach (var profileId in oldProfileIds.Except(currentProfileIds))
             {
-                _ctsRegistry.RequestCancellation(profileId);
+                _ctsRegistry.Cancel(profileId);
             }
 
             // Check which existing profiles have actually changed and replace their token sources.
@@ -89,6 +89,17 @@ public class BackupProfileService : IDisposable
     private class CancellationTokenSourceRegistry : IDisposable
     {
         private readonly Dictionary<string, CancellationTokenSource> _cancellationTokenSources = [];
+
+        public void Cancel(string profileId)
+        {
+            if (!_cancellationTokenSources.TryGetValue(profileId, out CancellationTokenSource? cts))
+            {
+                return;
+            }
+            cts.Cancel();
+            cts.Dispose();
+            _cancellationTokenSources.Remove(profileId);
+        }
 
         public void Clear()
         {
@@ -122,23 +133,12 @@ public class BackupProfileService : IDisposable
 
         public void RegisterOrReplace(string profileId)
         {
-            if (_cancellationTokenSources.TryGetValue(profileId, out var existingCts))
+            if (_cancellationTokenSources.TryGetValue(profileId, out var cts))
             {
-                existingCts.Cancel();
-                existingCts.Dispose();
+                cts.Cancel();
+                cts.Dispose();
             }
             _cancellationTokenSources[profileId] = new CancellationTokenSource();
-        }
-
-        public void RequestCancellation(string profileId)
-        {
-            if (!_cancellationTokenSources.TryGetValue(profileId, out CancellationTokenSource? cts))
-            {
-                return;
-            }
-            cts.Cancel();
-            cts.Dispose();
-            _cancellationTokenSources.Remove(profileId);
         }
     }
 }
