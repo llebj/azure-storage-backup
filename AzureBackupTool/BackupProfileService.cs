@@ -7,33 +7,38 @@ namespace AzureBackupTool;
 public class BackupProfileService : IDisposable
 {
     private bool _disposed = false;
+    private ImmutableDictionary<string, ReadOnlyBackupProfile> _readonlyBackupProfiles;
+
     private readonly IOptionsMonitor<List<BackupProfile>> _optionsMonitor;
-    private ImmutableDictionary<string, BackupProfileController> _readonlyBackupProfiles;
     private readonly Lock _readonlyBackupProfilesLock = new();
+    private readonly CancellationTokenSourceRegistry _ctsRegistry = new();
 
     public BackupProfileService(
         IOptionsMonitor<List<BackupProfile>> optionsMonitor)
     {
         _optionsMonitor = optionsMonitor;
         _readonlyBackupProfiles = _optionsMonitor.CurrentValue
-            .ToImmutableDictionary(p => p.Name, p => new BackupProfileController(p.GetReadOnlyBackupProfile(), new CancellationTokenSource()));
+            .ToImmutableDictionary(p => p.Name, p => p.GetReadOnlyBackupProfile());
+        foreach (var profileId in _readonlyBackupProfiles.Keys)
+        {
+            _ctsRegistry.Register(profileId);
+        }
         _optionsMonitor.OnChange(OnBackupProfileOptionsChanged);
     }
 
     public void Dispose()
     {
-        if (_disposed) return;
-        
+        if (_disposed)
+        {
+            return;
+        }
+
         lock (_readonlyBackupProfilesLock)
         {
-            foreach (var controller in _readonlyBackupProfiles.Values)
-            {
-                controller.CancellationTokenSource.Cancel();
-                controller.CancellationTokenSource.Dispose();
-            }
-            _readonlyBackupProfiles = ImmutableDictionary<string, BackupProfileController>.Empty;
+            _ctsRegistry.Dispose();
+            _readonlyBackupProfiles = ImmutableDictionary<string, ReadOnlyBackupProfile>.Empty;
         }
-        
+
         _disposed = true;
     }
 
@@ -41,7 +46,7 @@ public class BackupProfileService : IDisposable
     {
         lock (_readonlyBackupProfilesLock)
         {
-            return [.. _readonlyBackupProfiles.Select(item => item.Value.State.GetNextInvocation(currentTime, item.Value.CancellationTokenSource.Token))];
+            return [.. _readonlyBackupProfiles.Select(item => item.Value.GetNextInvocation(currentTime, _ctsRegistry.GetToken(item.Value.ProfileId)))];
         }
     }
 
@@ -50,59 +55,90 @@ public class BackupProfileService : IDisposable
         lock (_readonlyBackupProfilesLock)
         {
             var newReadOnlyProfiles = options.ToImmutableDictionary(p => p.Name, p => p.GetReadOnlyBackupProfile());
-            var profilesForCancellation = new List<string>();
-            var oldProfileKeys = _readonlyBackupProfiles.Keys.ToHashSet();
-            var currentProfileKeys = newReadOnlyProfiles.Keys.ToHashSet();
+            var oldProfileIds = _readonlyBackupProfiles.Keys.ToHashSet();
+            var currentProfileIds = newReadOnlyProfiles.Keys.ToHashSet();
 
-            // Add all of the profiles that have been remove completely.
-            profilesForCancellation.AddRange(oldProfileKeys.Except(currentProfileKeys));
+            // Cancel all tokens for profiles that no longer exist.
+            foreach (var profileId in oldProfileIds.Except(currentProfileIds))
+            {
+                _ctsRegistry.RequestCancellation(profileId);
+            }
 
-            var finalProfiles = new Dictionary<string, BackupProfileController>();
-            var newProfileKeys = currentProfileKeys.Except(oldProfileKeys);
-            var changedProfiles = new List<string>();
-            // Profiles that exist in both but may have changed
-            var potentiallyChangedProfiles = oldProfileKeys.Intersect(currentProfileKeys);
+            // Check which existing profiles have actually changed and replace their token sources.
+            foreach (var profileId in oldProfileIds.Intersect(currentProfileIds))
+            {
+                var oldProfile = _readonlyBackupProfiles[profileId];
+                var newProfile = newReadOnlyProfiles[profileId];
+                if (!oldProfile.Equals(newProfile))
+                {
+                    _ctsRegistry.RegisterOrReplace(profileId);
+                }
+            }
 
             // Register all new profiles.
-            foreach (var key in newProfileKeys)
+            foreach (var profileId in currentProfileIds.Except(oldProfileIds))
             {
-                finalProfiles.Add(key, new BackupProfileController(newReadOnlyProfiles[key], new CancellationTokenSource()));
+                _ctsRegistry.Register(profileId);
             }
 
-            // Check which existing profiles have actually changed
-            foreach (var key in potentiallyChangedProfiles)
-            {
-                var oldProfile = _readonlyBackupProfiles[key].State;
-                var newProfile = newReadOnlyProfiles[key];
-
-                if (oldProfile.Equals(newProfile))
-                {
-                    finalProfiles[key] = _readonlyBackupProfiles[key];
-                }
-                else
-                {
-                    changedProfiles.Add(key);
-                }
-            }
-
-            // Add changed profiles (with new CancellationTokenSource)
-            foreach (var key in changedProfiles)
-            {
-                finalProfiles.Add(key, new BackupProfileController(newReadOnlyProfiles[key], new CancellationTokenSource()));
-            }
-            profilesForCancellation.AddRange(changedProfiles);
-
-            // Cancel and dispose old cancellation token sources
-            foreach (var key in profilesForCancellation)
-            {
-                var (_, cts) = _readonlyBackupProfiles[key];
-                cts.Cancel();
-                cts.Dispose();
-            }
-
-            _readonlyBackupProfiles = finalProfiles.ToImmutableDictionary();
+            // Set new readonly profiles.
+            _readonlyBackupProfiles = newReadOnlyProfiles;
         }
     }
 
-    private readonly record struct BackupProfileController(ReadOnlyBackupProfile State, CancellationTokenSource CancellationTokenSource);
+    private class CancellationTokenSourceRegistry : IDisposable
+    {
+        private readonly Dictionary<string, CancellationTokenSource> _cancellationTokenSources = [];
+
+        public void Clear()
+        {
+            foreach (var cts in _cancellationTokenSources.Values)
+            {
+                cts.Cancel();
+                cts.Dispose();
+            }
+            _cancellationTokenSources.Clear();
+        }
+
+        public void Dispose() => Clear(); 
+
+        public CancellationToken GetToken(string profileId)
+        {
+            if (!_cancellationTokenSources.TryGetValue(profileId, out CancellationTokenSource? cts))
+            {
+                throw new InvalidOperationException($"The key {profileId} is not registered.");
+            }
+            return cts.Token;
+        }
+
+        public void Register(string profileId)
+        {
+            if (_cancellationTokenSources.ContainsKey(profileId))
+            {
+                throw new InvalidOperationException($"The key {profileId} has already been registered.");
+            }
+            _cancellationTokenSources[profileId] = new CancellationTokenSource();
+        }
+
+        public void RegisterOrReplace(string profileId)
+        {
+            if (_cancellationTokenSources.TryGetValue(profileId, out var existingCts))
+            {
+                existingCts.Cancel();
+                existingCts.Dispose();
+            }
+            _cancellationTokenSources[profileId] = new CancellationTokenSource();
+        }
+
+        public void RequestCancellation(string profileId)
+        {
+            if (!_cancellationTokenSources.TryGetValue(profileId, out CancellationTokenSource? cts))
+            {
+                return;
+            }
+            cts.Cancel();
+            cts.Dispose();
+            _cancellationTokenSources.Remove(profileId);
+        }
+    }
 }
