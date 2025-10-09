@@ -1,6 +1,6 @@
 using System.Formats.Tar;
 using System.IO.Compression;
-using Azure.Storage.Blobs;
+using AzureBackupTool.Options;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Options;
 
@@ -9,82 +9,23 @@ namespace AzureBackupTool;
 public class Worker : BackgroundService
 {
     private readonly ILogger<Worker> _logger;
-    private readonly IOptions<OutputSettings> _outputSettings;
-    private readonly BlobServiceClient _blobServiceClient;
-    private readonly ProfileInvocationSource _invocationSource;
-    private readonly ProfileInvocationSchedule _invocationSchedule = new();
+    private readonly ProgramOptions _options;
 
     public Worker(
         ILogger<Worker> logger,
-        IOptions<OutputSettings> blobSettings,
-        BlobServiceClient blobServiceClient,
-        ProfileInvocationSource backupProfileService)
+        IOptions<ProgramOptions> options)
     {
         _logger = logger;
-        _outputSettings = blobSettings;
-        _blobServiceClient = blobServiceClient;
-        _invocationSource = backupProfileService;
+        _options = options.Value;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (_outputSettings.Value.Type == "fs")
+        PeriodicTimer timer = new(TimeSpan.FromSeconds(10));
+        do
         {
-            _logger.LogInformation("Running in file system mode.");
-        }
-
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            var currentTime = DateTimeOffset.Now;
-            foreach (var invocation in _invocationSource.GetInvocations(currentTime))
-            {
-                _invocationSchedule.ScheduleInvocation(invocation);
-            }
-
-            var pendingInvocations = _invocationSchedule.GetPendingInvocations(currentTime);
-            _logger.LogTrace("Processing {InvocationCount} pending profile invocations.", pendingInvocations.Count);
-            foreach (var invocation in pendingInvocations)
-            {
-                _logger.LogInformation("Executing the '{InvocationTime}' scheduled invocation of profile '{ProfileName}'.",
-                    invocation.InvokeAt,
-                    invocation.ProfileId);
-                // Read profile file
-                if (!Directory.Exists(invocation.SearchDefinition.Directory))
-                {
-                    _logger.LogInformation("Directory '{Directory}' does not exist.", invocation.SearchDefinition.Directory);
-                    continue;
-                }
-                _logger.LogDebug("Found directory '{Directory}'.", invocation.SearchDefinition.Directory);
-
-                // Archive and zip file
-                // TODO: Perform basic validation on the profile name.
-                // TODO: Perform benchmarking and profiling to determine performance of uploading
-                // from memory vs uploading from file.
-                using Stream stream = _outputSettings.Value.Type == "fs" ?
-                    new FileStream(Path.Combine(_outputSettings.Value.Path, $"{invocation.ProfileId}.tar.gz"), FileMode.Create) :
-                    new MemoryStream();
-                await BuildArchive(stream, invocation.SearchDefinition, stoppingToken);
-
-                if (_outputSettings.Value.Type == "fs")
-                {
-                    // Dump to file system
-                    stream.Close();
-                }
-                else
-                {
-                    // Push to Azure
-                    stream.Position = 0;
-                    var blobName = $"{invocation.ProfileId}.tar.gz";
-                    var blobClient = _blobServiceClient
-                        .GetBlobContainerClient(_outputSettings.Value.Path)
-                        .GetBlobClient(blobName);
-                    _logger.LogInformation("Writing blob '{Output}'.", blobName);
-                    await blobClient.UploadAsync(stream, overwrite: true, cancellationToken: stoppingToken);
-                }
-            }
-
-            await Task.Delay(1_000, stoppingToken);
-        }
+            _logger.LogInformation("Backing up files in {Path}", _options.Path);
+        } while (await timer.WaitForNextTickAsync(stoppingToken));
     }
 
     private async ValueTask BuildArchive(Stream stream, ReadOnlySearchDefinition searchDefinition, CancellationToken cancellationToken)

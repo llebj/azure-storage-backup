@@ -1,5 +1,6 @@
 using Azure.Identity;
 using AzureBackupTool;
+using AzureBackupTool.Options;
 using Microsoft.Extensions.Azure;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -9,12 +10,14 @@ builder.Configuration
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
     .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true);
 
-builder.Services.AddOptions<List<BackupProfile>>()
-    .Bind(builder.Configuration.GetSection(key: "Profiles"));
-builder.Services.AddOptions<OutputSettings>()
-    .Bind(builder.Configuration.GetSection(key: OutputSettings.Key))
-    .ValidateDataAnnotations()
-    .ValidateOnStart();
+builder.Services.AddOptions<ProgramOptions>()
+    .Bind(builder.Configuration.GetSection(key: ProgramOptions.Key));
+// builder.Services.AddOptions<List<BackupProfile>>()
+//     .Bind(builder.Configuration.GetSection(key: "Profiles"));
+// builder.Services.AddOptions<OutputSettings>()
+//     .Bind(builder.Configuration.GetSection(key: OutputSettings.Key))
+//     .ValidateDataAnnotations()
+//     .ValidateOnStart();
 
 builder.Services.AddAzureClients(clientBuilder => 
 {
@@ -29,7 +32,7 @@ builder.Services.AddAzureClients(clientBuilder =>
                 azureSettings.ClientSecret));
 });
 
-builder.Services.AddSingleton<ProfileInvocationSource>();
+// builder.Services.AddSingleton<ProfileInvocationSource>();
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();
