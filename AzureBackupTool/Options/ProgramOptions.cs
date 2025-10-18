@@ -4,5 +4,7 @@ public class ProgramOptions
 {
     public const string Key = "Program";
 
-    public string Path { get; set; } = string.Empty;
+    public string DatabasePath { get; set; } = string.Empty;
+
+    public string TargetDirectoryPath { get; set; } = string.Empty;
 }
