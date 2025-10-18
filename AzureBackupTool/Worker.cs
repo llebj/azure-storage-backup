@@ -2,7 +2,6 @@ using AzureBackupTool.Models;
 using AzureBackupTool.Options;
 using Dapper;
 using Microsoft.Data.Sqlite;
-using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Options;
 using System.Collections.Immutable;
 using System.Formats.Tar;
@@ -36,7 +35,46 @@ public class Worker : BackgroundService
         {
             _logger.LogInformation("Backing up files in {Path}", _options.TargetDirectoryPath);
             RegisterSnapshots(_options.TargetDirectoryPath, _connectionString);
-        } 
+            await BuildArchives(_connectionString, stoppingToken);
+        }
+    }
+
+    private async ValueTask BuildArchives(string connectionString, CancellationToken cancellationToken)
+    {
+        var snapshots = GetRegisteredSnapshots(connectionString);
+        using SqliteConnection connection = new(connectionString);
+        connection.Open();
+        foreach (var snapshot in snapshots)
+        {
+            _logger.LogDebug(
+                "Updating snapshot {SnapshotName} to be in the {Status} state.",
+                snapshot,Status.BuildingArchive);
+            connection.Execute(
+                "UPDATE snapshots SET status = @status WHERE name = @name;",
+                new
+                {
+                    status = Status.BuildingArchive,
+                    name = snapshot
+                });
+            // var archive = await BuildArchive(snapshot, cancellationToken);
+        }
+    }
+
+    private ImmutableArray<string> GetRegisteredSnapshots(string connectionString)
+    {
+        using SqliteConnection connection = new(connectionString);
+        connection.Open();
+        _logger.LogDebug("Getting snapshots in the {Status} state in database {Database}.",
+            Status.Registered,
+            connection.Database);
+
+        var query = "SELECT name FROM snapshots WHERE status = @status;";
+        ImmutableArray<string> snapshotNames = [.. connection.Query<string>(query, new { status = Status.Registered })];
+        _logger.LogDebug("Retrieved {SnapshotCount} snapshots in the {Status} state.",
+            snapshotNames.Length,
+            Status.Registered);
+
+        return snapshotNames;
     }
 
     private void RegisterSnapshots(string targetDirectoryPath, string connectionString)
@@ -83,7 +121,7 @@ public class Worker : BackgroundService
         {
             values.Add($"(@name{i}, @status{i})");
             parameters.Add($"name{i}", snapshots[i].Name);
-            parameters.Add($"status{i}", (int)snapshots[i].Status);
+            parameters.Add($"status{i}", snapshots[i].Status);
         }
         var query = $@"
             INSERT INTO snapshots (name, status) 
@@ -93,29 +131,16 @@ public class Worker : BackgroundService
         _logger.LogInformation("Registered {Count} new snapshots.", count);
     }
 
-    private async ValueTask BuildArchive(Stream stream, ReadOnlySearchDefinition searchDefinition, CancellationToken cancellationToken)
+    private async ValueTask<string> BuildArchive(string snapshot, CancellationToken cancellationToken)
     {
-        Matcher matcher = new();
-        matcher.AddIncludePatterns(searchDefinition.IncludePatterns);
-        matcher.AddExcludePatterns(searchDefinition.ExcludePatterns);
-        // TODO: Filter for only regular files
-        IEnumerable<string> matchingFiles = matcher.GetResultsInFullPath(searchDefinition.Directory);
-        if (_logger.IsEnabled(LogLevel.Debug))
-        {
-            _logger.LogDebug("Matched to following files: [{FileNames}]", string.Join(", ", matchingFiles));
-        }
-
-        using GZipStream gz = new(stream, CompressionMode.Compress, leaveOpen: true);
-        using TarWriter writer = new(gz);
-        foreach (var fileName in matchingFiles)
-        {
-            var relativePath = Path.GetRelativePath(searchDefinition.Directory, fileName);
-            using var fileStream = File.OpenRead(fileName);
-            PaxTarEntry entry = new(TarEntryType.RegularFile, relativePath)
-            {
-                DataStream = fileStream
-            };
-            await writer.WriteEntryAsync(entry, cancellationToken);
-        }
+        var archiveName = $"{snapshot}.tar.gz";
+        using FileStream stream = File.Create(archiveName);
+        using GZipStream gz = new(stream, CompressionMode.Compress);
+        await TarFile.CreateFromDirectoryAsync(
+            snapshot,
+            gz,
+            false,
+            cancellationToken);
+        return archiveName;
     }
 }

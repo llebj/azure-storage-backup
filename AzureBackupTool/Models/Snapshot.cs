@@ -18,5 +18,7 @@ public class Snapshot
 
 public enum Status
 {
-    Registered = 0
+    Registered = 0,
+    BuildingArchive = 1,
+    ArchiveBuilt = 2,
 }
