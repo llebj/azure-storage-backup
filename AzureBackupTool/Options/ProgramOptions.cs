@@ -7,4 +7,6 @@ public class ProgramOptions
     public string DatabasePath { get; set; } = string.Empty;
 
     public string TargetDirectoryPath { get; set; } = string.Empty;
+
+    public string Output { get; set; } = string.Empty;
 }

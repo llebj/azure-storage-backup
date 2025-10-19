@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace AzureBackupTool.Models;
 
 public class Snapshot
@@ -13,12 +15,15 @@ public class Snapshot
 
     public Status Status { get; set; } = Status.Registered;
 
+    [Column("archive_name")]
     public string? ArchiveName { get; set; }
 }
 
 public enum Status
 {
-    Registered = 0,
-    BuildingArchive = 1,
-    ArchiveBuilt = 2,
+    Registered,
+    BuildingArchive,
+    ArchiveBuilt,
+    UploadingArchive,
+    ArchiveUploaded
 }
