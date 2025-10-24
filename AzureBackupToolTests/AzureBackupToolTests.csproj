@@ -26,4 +26,8 @@
     <ProjectReference Include="..\AzureBackupTool\AzureBackupTool.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="../scripts/create.sql" Link="create.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
