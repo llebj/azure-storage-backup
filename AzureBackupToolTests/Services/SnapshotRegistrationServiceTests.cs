@@ -1,10 +1,9 @@
-using System.Collections.Immutable;
 using AzureBackupTool.Models;
-using AzureBackupTool.Options;
 using Dapper;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
 using MsOptions = Microsoft.Extensions.Options;
+using System.Collections.Immutable;
 
 namespace AzureBackupTool.Services.Tests;
 

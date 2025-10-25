@@ -109,16 +109,6 @@ public class Worker : BackgroundService
         connection.Open();
         foreach (var snapshot in snapshots)
         {
-            _logger.LogDebug(
-                "Updating snapshot {SnapshotName} to be in the {Status} state.",
-                snapshot, Status.BuildingArchive);
-            connection.Execute(
-                "UPDATE snapshots SET status = @status WHERE name = @name;",
-                new
-                {
-                    status = Status.BuildingArchive,
-                    name = snapshot
-                });
             var archive = await BuildArchive(snapshot, cancellationToken);
             _logger.LogDebug(
                 "Updating snapshot {SnapshotName} to be in the {Status} state.",
