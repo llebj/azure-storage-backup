@@ -1,14 +1,17 @@
-using System.Reflection.Metadata;
-using System.Security.Cryptography;
 using Azure.Storage.Blobs;
 using AzureBackupTool.Models;
 using AzureBackupToolTests.Fixtures;
 using Dapper;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging.Abstractions;
+using MsOptions = Microsoft.Extensions.Options;
+using System.Security.Cryptography;
+using System.Collections.Immutable;
+using Azure;
 
 namespace AzureBackupTool.Services.Tests;
 
-public class UploadServiceTests : IClassFixture<UploadServiceFixture>
+public class UploadServiceTests : IClassFixture<UploadServiceFixture>, IDisposable
 {
     private readonly UploadServiceFixture _fixture;
     private readonly string _directory;
@@ -27,7 +30,8 @@ public class UploadServiceTests : IClassFixture<UploadServiceFixture>
         Directory.CreateDirectory(_directory);
 
         var containerName = $"test{id:N}".ToLowerInvariant();
-        _blobContainerClient = _fixture.BlobServiceClient.CreateBlobContainer(containerName).Value;
+        var blobServiceClient = _fixture.BlobServiceClient;
+        _blobContainerClient = blobServiceClient.CreateBlobContainer(containerName).Value;
 
         _dbPath = Path.Combine(Path.GetTempPath(), $"test_{id}.db");
         _connection = new SqliteConnection($"Data Source={_dbPath}");
@@ -35,9 +39,13 @@ public class UploadServiceTests : IClassFixture<UploadServiceFixture>
 
         InitialiseSchema();
 
-        _service = new UploadService();
+        _service = new UploadService(
+            new NullLogger<UploadService>(),
+            MsOptions.Options.Create(new UploadOptions(_dbPath, containerName)),
+            blobServiceClient);
     }
 
+    // TODO: Update this test to ensure that archives not in ArchiveBuilt are ignored
     [Fact]
     public async Task UploadsArchivesForArchivedSnapshots()
     {
@@ -57,6 +65,13 @@ public class UploadServiceTests : IClassFixture<UploadServiceFixture>
         await _service.UploadArchives(CancellationToken.None);
 
         // Assert
+        var outputQuery = "SELECT name, status, archive_name as ArchiveName FROM snapshots WHERE status = @status;";
+        ImmutableArray<Snapshot> archives = [.. _connection.Query<Snapshot>(outputQuery, new { status = Status.ArchiveUploaded })];
+        Assert.Single(archives);
+        Assert.Equal(batchDir, archives[0].Name);
+        Assert.Equal(batchPath, archives[0].ArchiveName);
+        Assert.Equal(Status.ArchiveUploaded, archives[0].Status);
+
         var blobName = Path.GetFileName(batchPath);
         var blobClient = _blobContainerClient
             .GetBlobClient(blobName);
@@ -69,9 +84,68 @@ public class UploadServiceTests : IClassFixture<UploadServiceFixture>
         Assert.Equal(contentHash, Convert.ToBase64String(blobProperties.Value.ContentHash));
     }
 
-    // IgnoresUploadedArchives
+    [Fact]
+    public async Task IgnoresUploadedArchives()
+    {
+        // Arrange
+        var batchDir = Path.Combine(_directory, "batch_001");
+        Directory.CreateDirectory(batchDir);
+        var batchPath = Path.Combine(batchDir, "file1.txt");
+        File.WriteAllText(batchPath, "content 1");
+        var contentHash = ComputeMD5HashBase64(batchPath);
 
-    // ThrowsIfABlobAlreadyExistsForAnArchivedSnapshot
+        var query = @"
+            INSERT INTO snapshots (name, status, archive_name)
+            VALUES (@name, @status, @archive);";
+        _connection.Execute(query, new { name = batchDir, status = Status.ArchiveBuilt, archive = batchPath });
+
+        // Act
+        await _service.UploadArchives(CancellationToken.None);
+        await _service.UploadArchives(CancellationToken.None);
+
+        // Assert
+        var outputQuery = "SELECT name, status, archive_name as ArchiveName FROM snapshots WHERE status = @status;";
+        ImmutableArray<Snapshot> archives = [.. _connection.Query<Snapshot>(outputQuery, new { status = Status.ArchiveUploaded })];
+        Assert.Single(archives);
+        Assert.Equal(batchDir, archives[0].Name);
+        Assert.Equal(batchPath, archives[0].ArchiveName);
+        Assert.Equal(Status.ArchiveUploaded, archives[0].Status);
+
+        var blobName = Path.GetFileName(batchPath);
+        var blobClient = _blobContainerClient
+            .GetBlobClient(blobName);
+
+        var blobExists = await blobClient
+            .ExistsAsync();
+        Assert.True(blobExists.Value);
+
+        var blobProperties = await blobClient.GetPropertiesAsync();
+        Assert.Equal(contentHash, Convert.ToBase64String(blobProperties.Value.ContentHash));
+    }
+
+    [Fact]
+    public async Task ThrowsIfABlobAlreadyExistsForAnArchivedSnapshot()
+    {
+        // Arrange
+        var batchDir = Path.Combine(_directory, "batch_001");
+        Directory.CreateDirectory(batchDir);
+        var batchPath = Path.Combine(batchDir, "file1.txt");
+        File.WriteAllText(batchPath, "content 1");
+        var contentHash = ComputeMD5HashBase64(batchPath);
+
+        var query = @"
+            INSERT INTO snapshots (name, status, archive_name)
+            VALUES (@name, @status, @archive);";
+        _connection.Execute(query, new { name = batchDir, status = Status.ArchiveBuilt, archive = batchPath });
+
+        using FileStream stream = File.OpenRead(batchPath);
+        var blobClient = _blobContainerClient
+            .GetBlobClient(Path.GetFileName(batchPath));
+        await blobClient.UploadAsync(stream, CancellationToken.None);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<RequestFailedException>(async () => { await _service.UploadArchives(CancellationToken.None); });
+    }
 
     // LeavesSystemInARecoverableStateUponCancellation
 
