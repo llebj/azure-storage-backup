@@ -1,5 +1,7 @@
 using System.Collections.Immutable;
+using Azure.Storage;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using AzureBackupTool.Models;
 using Dapper;
 using Microsoft.Data.Sqlite;
@@ -9,10 +11,22 @@ namespace AzureBackupTool.Services;
 
 public class UploadService
 {
-    private readonly ILogger<UploadService> _logger;
+
     private readonly string _connectionString;
-    private readonly BlobServiceClient _blobServiceClient;
     private readonly string _output;
+    private readonly ILogger<UploadService> _logger;
+    private readonly BlobServiceClient _blobServiceClient;
+    private readonly BlobUploadOptions _blobUploadOptions = new()
+    {
+        TransferValidation = new()
+        {
+            ChecksumAlgorithm = StorageChecksumAlgorithm.MD5
+        },
+        Conditions = new()
+        {
+            IfNoneMatch = new("*")
+        }
+    };
 
     public UploadService(
         ILogger<UploadService> logger,
@@ -36,6 +50,30 @@ public class UploadService
         connection.Open();
         foreach (var snapshot in snapshots)
         {
+            var blobClient = _blobServiceClient
+                .GetBlobContainerClient(_output)
+                .GetBlobClient(Path.GetFileName(snapshot.ArchiveName));
+            // If the status is UploadingArchive then a previous attempt to upload an archive was
+            // interrupted either by cancellation or by program termination. We are able to recover
+            // from this state by cleaning up any existing blob and proceeding as normal.
+            if (snapshot.Status == Status.UploadingArchive)
+            {
+                // We only need to delete the blob if the checksum does not match the local copy.
+                // TODO: implement checksum validation
+                await blobClient.DeleteIfExistsAsync(cancellationToken: cancellationToken);
+            }
+
+            _logger.LogDebug(
+                "Updating snapshot {SnapshotName} to be in the {Status} state.",
+                snapshot.Name, Status.UploadingArchive);
+            connection.Execute(
+                "UPDATE snapshots SET status = @status WHERE name = @name;",
+                new
+                {
+                    status = Status.UploadingArchive,
+                    name = snapshot.Name
+                });
+
             await UploadArchive(snapshot, cancellationToken);
 
             _logger.LogDebug(
@@ -55,15 +93,19 @@ public class UploadService
     {
         using SqliteConnection connection = new(connectionString);
         connection.Open();
-        _logger.LogDebug("Getting snapshots in the {Status} state in database {Database}.",
+        _logger.LogDebug("Getting snapshots in the {Status} or {Status} state in database {Database}.",
             Status.ArchiveBuilt,
+            Status.UploadingArchive,
             connection.Database);
 
-        var query = "SELECT name, status, archive_name AS ArchiveName FROM snapshots WHERE status = @status;";
-        ImmutableArray<Snapshot> snapshotNames = [.. connection.Query<Snapshot>(query, new { status = Status.ArchiveBuilt })];
-        _logger.LogDebug("Retrieved {SnapshotCount} snapshots in the {Status} state.",
-            snapshotNames.Length,
-            Status.ArchiveBuilt);
+        var query = @"
+            SELECT name, status, archive_name AS ArchiveName
+            FROM snapshots
+            WHERE status = @built OR status = @uploading;";
+        ImmutableArray<Snapshot> snapshotNames = [..
+            connection.Query<Snapshot>(query, new { built = Status.ArchiveBuilt, uploading = Status.UploadingArchive })];
+        _logger.LogDebug("Retrieved {Count} snapshots.",
+            snapshotNames.Length);
 
         return snapshotNames;
     }
@@ -78,7 +120,7 @@ public class UploadService
         var blobClient = _blobServiceClient
             .GetBlobContainerClient(_output)
             .GetBlobClient(Path.GetFileName(snapshot.ArchiveName));
-        await blobClient.UploadAsync(stream, cancellationToken);
+        await blobClient.UploadAsync(stream, _blobUploadOptions, cancellationToken);
         _logger.LogInformation("Successfully uploaded archive for snapshot {Snapshot}.", snapshot.Name);
     }
 }

@@ -147,9 +147,72 @@ public class UploadServiceTests : IClassFixture<UploadServiceFixture>, IDisposab
         await Assert.ThrowsAsync<RequestFailedException>(async () => { await _service.UploadArchives(CancellationToken.None); });
     }
 
-    // LeavesSystemInARecoverableStateUponCancellation
+    [Fact]
+    public async Task LeavesSystemInARecoverableStateUponCancellation()
+    {
+        // Arrange
+        var batchDir = Path.Combine(_directory, "batch_001");
+        Directory.CreateDirectory(batchDir);
+        var batchPath = Path.Combine(batchDir, "file1.txt");
+        File.WriteAllText(batchPath, "content 1");
 
-    // CanRecoverFromInterruptedArchiveUpload
+        var query = @"
+            INSERT INTO snapshots (name, status, archive_name)
+            VALUES (@name, @status, @archive);";
+        _connection.Execute(query, new { name = batchDir, status = Status.ArchiveBuilt, archive = batchPath });
+
+        CancellationTokenSource cts = new();
+        cts.Cancel();
+
+        // Act
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await _service.UploadArchives(cts.Token));
+
+        // Assert
+        var outputQuery = "SELECT name, status, archive_name as ArchiveName FROM snapshots WHERE name = @name;";
+        var snapshot = _connection.QuerySingle<Snapshot>(outputQuery, new { name = batchDir });
+        Assert.Equal(Status.UploadingArchive, snapshot.Status);
+    }
+
+    [Fact]
+    public async Task CanRecoverFromInterruptedArchiveUpload()
+    {
+        // Arrange
+        var batchDir = Path.Combine(_directory, "batch_001");
+        Directory.CreateDirectory(batchDir);
+        var batchPath = Path.Combine(batchDir, "file1.txt");
+        File.WriteAllText(batchPath, "content 1");
+        var contentHash = ComputeMD5HashBase64(batchPath);
+
+        // Upload the blob to simulate failure after upload to ensure correct clean-up.
+        var blobName = Path.GetFileName(batchPath);
+        var blobClient = _blobContainerClient.GetBlobClient(blobName);
+        await blobClient.UploadAsync(batchPath);
+
+        // A status of `UploadingArchive` indicates that the process was interrupted. This
+        // is a recoverable state.
+        var query = @"
+            INSERT INTO snapshots (name, status, archive_name)
+            VALUES (@name, @status, @archive);";
+        _connection.Execute(query, new { name = batchDir, status = Status.UploadingArchive, archive = batchPath });
+
+        // Act
+        await _service.UploadArchives(CancellationToken.None);
+
+        // Assert
+        var outputQuery = "SELECT name, status, archive_name as ArchiveName FROM snapshots WHERE status = @status;";
+        ImmutableArray<Snapshot> archives = [.. _connection.Query<Snapshot>(outputQuery, new { status = Status.ArchiveUploaded })];
+        Assert.Single(archives);
+        Assert.Equal(batchDir, archives[0].Name);
+        Assert.Equal(batchPath, archives[0].ArchiveName);
+        Assert.Equal(Status.ArchiveUploaded, archives[0].Status);
+
+        var blobExists = await blobClient
+            .ExistsAsync();
+        Assert.True(blobExists.Value);
+
+        var blobProperties = await blobClient.GetPropertiesAsync();
+        Assert.Equal(contentHash, Convert.ToBase64String(blobProperties.Value.ContentHash));
+    }
 
     public void Dispose()
     {
