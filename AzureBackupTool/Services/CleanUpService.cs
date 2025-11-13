@@ -6,13 +6,13 @@ using Microsoft.Extensions.Options;
 
 namespace AzureBackupTool.Services;
 
-public class CleanupService
+public class CleanUpService
 {
-    private readonly ILogger<CleanupService> _logger;
+    private readonly ILogger<CleanUpService> _logger;
     private readonly string _connectionString;
 
-    public CleanupService(
-        ILogger<CleanupService> logger,
+    public CleanUpService(
+        ILogger<CleanUpService> logger,
         IOptions<CleanupOptions> options)
     {
         _logger = logger;

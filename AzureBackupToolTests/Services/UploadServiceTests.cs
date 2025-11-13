@@ -51,7 +51,7 @@ public class UploadServiceTests : IClassFixture<UploadServiceFixture>, IDisposab
         // Arrange
         var batchDir = Path.Combine(_directory, "batch_001");
         Directory.CreateDirectory(batchDir);
-        var batchPath = Path.Combine(batchDir, "file1.txt");
+        var batchPath = $"{batchDir}.txt";
         File.WriteAllText(batchPath, "content 1");
         var contentHash = ComputeMD5HashBase64(batchPath);
 
@@ -89,7 +89,7 @@ public class UploadServiceTests : IClassFixture<UploadServiceFixture>, IDisposab
         // Arrange
         var batchDir = Path.Combine(_directory, "batch_001");
         Directory.CreateDirectory(batchDir);
-        var batchPath = Path.Combine(batchDir, "file1.txt");
+        var batchPath = $"{batchDir}.txt";
         File.WriteAllText(batchPath, "content 1");
         var contentHash = ComputeMD5HashBase64(batchPath);
 
@@ -128,7 +128,7 @@ public class UploadServiceTests : IClassFixture<UploadServiceFixture>, IDisposab
         // Arrange
         var batchDir = Path.Combine(_directory, "batch_001");
         Directory.CreateDirectory(batchDir);
-        var batchPath = Path.Combine(batchDir, "file1.txt");
+        var batchPath = $"{batchDir}.txt";
         File.WriteAllText(batchPath, "content 1");
         var contentHash = ComputeMD5HashBase64(batchPath);
 
@@ -152,7 +152,7 @@ public class UploadServiceTests : IClassFixture<UploadServiceFixture>, IDisposab
         // Arrange
         var batchDir = Path.Combine(_directory, "batch_001");
         Directory.CreateDirectory(batchDir);
-        var batchPath = Path.Combine(batchDir, "file1.txt");
+        var batchPath = $"{batchDir}.txt";
         File.WriteAllText(batchPath, "content 1");
 
         var query = @"
@@ -178,7 +178,7 @@ public class UploadServiceTests : IClassFixture<UploadServiceFixture>, IDisposab
         // Arrange
         var batchDir = Path.Combine(_directory, "batch_001");
         Directory.CreateDirectory(batchDir);
-        var batchPath = Path.Combine(batchDir, "file1.txt");
+        var batchPath = $"{batchDir}.txt";
         File.WriteAllText(batchPath, "content 1");
         var contentHash = ComputeMD5HashBase64(batchPath);
 

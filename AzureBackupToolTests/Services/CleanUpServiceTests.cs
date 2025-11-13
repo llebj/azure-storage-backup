@@ -7,15 +7,15 @@ using MsOptions = Microsoft.Extensions.Options;
 
 namespace AzureBackupTool.Services.Tests;
 
-public class CleanupServiceTests : IDisposable
+public class CleanUpServiceTests : IDisposable
 {
     private readonly string _directory;
     private readonly string _dbPath;
     private readonly SqliteConnection _connection;
-    private readonly CleanupService _service;
+    private readonly CleanUpService _service;
 
     // TODO: implement an abstract class for all of this boilerplate
-    public CleanupServiceTests()
+    public CleanUpServiceTests()
     {
         var id = Guid.NewGuid();
         _directory = Path.Combine(Path.GetTempPath(), $"test_{id}");
@@ -27,8 +27,8 @@ public class CleanupServiceTests : IDisposable
 
         InitialiseSchema();
 
-        _service = new CleanupService(
-            new NullLogger<CleanupService>(),
+        _service = new CleanUpService(
+            new NullLogger<CleanUpService>(),
             MsOptions.Options.Create(new CleanupOptions(_dbPath)));
     }
 
