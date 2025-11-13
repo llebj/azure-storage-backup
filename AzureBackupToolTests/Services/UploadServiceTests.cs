@@ -45,7 +45,6 @@ public class UploadServiceTests : IClassFixture<UploadServiceFixture>, IDisposab
             blobServiceClient);
     }
 
-    // TODO: Update this test to ensure that archives not in ArchiveBuilt are ignored
     [Fact]
     public async Task UploadsArchivesForArchivedSnapshots()
     {
@@ -170,7 +169,7 @@ public class UploadServiceTests : IClassFixture<UploadServiceFixture>, IDisposab
         // Assert
         var outputQuery = "SELECT name, status, archive_name as ArchiveName FROM snapshots WHERE name = @name;";
         var snapshot = _connection.QuerySingle<Snapshot>(outputQuery, new { name = batchDir });
-        Assert.Equal(Status.UploadingArchive, snapshot.Status);
+        Assert.Equal(Status.ArchiveUploading, snapshot.Status);
     }
 
     [Fact]
@@ -193,7 +192,7 @@ public class UploadServiceTests : IClassFixture<UploadServiceFixture>, IDisposab
         var query = @"
             INSERT INTO snapshots (name, status, archive_name)
             VALUES (@name, @status, @archive);";
-        _connection.Execute(query, new { name = batchDir, status = Status.UploadingArchive, archive = batchPath });
+        _connection.Execute(query, new { name = batchDir, status = Status.ArchiveUploading, archive = batchPath });
 
         // Act
         await _service.UploadArchives(CancellationToken.None);

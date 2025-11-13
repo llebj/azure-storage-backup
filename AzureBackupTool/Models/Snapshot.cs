@@ -22,8 +22,9 @@ public class Snapshot
 public enum Status
 {
     Registered,
-    BuildingArchive,
+    ArchiveBuilding,
     ArchiveBuilt,
-    UploadingArchive,
-    ArchiveUploaded
+    ArchiveUploading,
+    ArchiveUploaded,
+    ArchiveRemoved
 }

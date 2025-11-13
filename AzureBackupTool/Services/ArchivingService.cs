@@ -36,19 +36,19 @@ public class ArchivingService
             // If the status is BuildingArchive then a previous attempt to build an archive was
             // interrupted either by cancellation or by program termination. We are able to recover
             // from this state by cleaning up any existing archive and proceeding as normal.
-            if (snapshot.Status == Status.BuildingArchive && File.Exists(archiveName))
+            if (snapshot.Status == Status.ArchiveBuilding && File.Exists(archiveName))
             {
                 File.Delete(archiveName);
             }
 
             _logger.LogDebug(
                 "Updating snapshot {SnapshotName} to be in the {Status} state.",
-                snapshot.Name, Status.BuildingArchive);
+                snapshot.Name, Status.ArchiveBuilding);
             connection.Execute(
                 "UPDATE snapshots SET status = @status WHERE name = @name;",
                 new
                 {
-                    status = Status.BuildingArchive,
+                    status = Status.ArchiveBuilding,
                     name = snapshot.Name
                 });
 
@@ -74,7 +74,7 @@ public class ArchivingService
         connection.Open();
         _logger.LogDebug("Getting snapshots in the {Registered} or {BuildingArchive} state in database {Database}.",
             Status.Registered,
-            Status.BuildingArchive,
+            Status.ArchiveBuilding,
             connection.Database);
 
         var query = @"
@@ -82,7 +82,7 @@ public class ArchivingService
             FROM snapshots 
             WHERE status = @registered OR status = @building;";
         ImmutableArray<Snapshot> snapshots = [..
-            connection.Query<Snapshot>(query, new { registered = Status.Registered, building = Status.BuildingArchive })];
+            connection.Query<Snapshot>(query, new { registered = Status.Registered, building = Status.ArchiveBuilding })];
         _logger.LogDebug("Retrieved {SnapshotCount} snapshots.",
             snapshots.Length);
 

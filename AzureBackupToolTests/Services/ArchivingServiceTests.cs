@@ -160,7 +160,7 @@ public class ArchivingServiceTests : IDisposable
 
         var outputQuery = "SELECT name, status, archive_name as ArchiveName FROM snapshots WHERE name = @name;";
         var snapshot = _connection.QuerySingle<Snapshot>(outputQuery, new { name = batchDir });
-        Assert.Equal(Status.BuildingArchive, snapshot.Status);
+        Assert.Equal(Status.ArchiveBuilding, snapshot.Status);
     }
 
     [Fact]
@@ -181,7 +181,7 @@ public class ArchivingServiceTests : IDisposable
         var query = @"
             INSERT INTO snapshots (name, status, archive_name) 
             VALUES (@name, @status, @archive)";
-        _connection.Execute(query, new { name = batchDir, status = Status.BuildingArchive, archive = archivePath });
+        _connection.Execute(query, new { name = batchDir, status = Status.ArchiveBuilding, archive = archivePath });
 
         // Act
         await _service.BuildArchives(CancellationToken.None);

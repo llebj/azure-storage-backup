@@ -56,7 +56,7 @@ public class UploadService
             // If the status is UploadingArchive then a previous attempt to upload an archive was
             // interrupted either by cancellation or by program termination. We are able to recover
             // from this state by cleaning up any existing blob and proceeding as normal.
-            if (snapshot.Status == Status.UploadingArchive)
+            if (snapshot.Status == Status.ArchiveUploading)
             {
                 // We only need to delete the blob if the checksum does not match the local copy.
                 // TODO: implement checksum validation
@@ -65,12 +65,12 @@ public class UploadService
 
             _logger.LogDebug(
                 "Updating snapshot {SnapshotName} to be in the {Status} state.",
-                snapshot.Name, Status.UploadingArchive);
+                snapshot.Name, Status.ArchiveUploading);
             connection.Execute(
                 "UPDATE snapshots SET status = @status WHERE name = @name;",
                 new
                 {
-                    status = Status.UploadingArchive,
+                    status = Status.ArchiveUploading,
                     name = snapshot.Name
                 });
 
@@ -95,7 +95,7 @@ public class UploadService
         connection.Open();
         _logger.LogDebug("Getting snapshots in the {Status} or {Status} state in database {Database}.",
             Status.ArchiveBuilt,
-            Status.UploadingArchive,
+            Status.ArchiveUploading,
             connection.Database);
 
         var query = @"
@@ -103,7 +103,7 @@ public class UploadService
             FROM snapshots
             WHERE status = @built OR status = @uploading;";
         ImmutableArray<Snapshot> snapshotNames = [..
-            connection.Query<Snapshot>(query, new { built = Status.ArchiveBuilt, uploading = Status.UploadingArchive })];
+            connection.Query<Snapshot>(query, new { built = Status.ArchiveBuilt, uploading = Status.ArchiveUploading })];
         _logger.LogDebug("Retrieved {Count} snapshots.",
             snapshotNames.Length);
 

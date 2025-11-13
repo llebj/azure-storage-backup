@@ -169,12 +169,12 @@ public class Worker : BackgroundService
             _logger.LogDebug(
                 "Updating snapshot {SnapshotName} to be in the {Status} state.",
                 snapshot.Name,
-                Status.UploadingArchive);
+                Status.ArchiveUploading);
             connection.Execute(
                 "UPDATE snapshots SET status = @status WHERE name = @name;",
                 new
                 {
-                    status = Status.UploadingArchive,
+                    status = Status.ArchiveUploading,
                     name = snapshot.Name
                 });
             await UploadArchive(snapshot, cancellationToken);
