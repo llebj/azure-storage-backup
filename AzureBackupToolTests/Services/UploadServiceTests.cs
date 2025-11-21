@@ -8,6 +8,7 @@ using MsOptions = Microsoft.Extensions.Options;
 using System.Security.Cryptography;
 using System.Collections.Immutable;
 using Azure;
+using AzureBackupTool.Options;
 
 namespace AzureBackupTool.Services.Tests;
 

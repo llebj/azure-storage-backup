@@ -3,6 +3,7 @@ using System.Formats.Tar;
 using System.IO.Compression;
 using System.Text;
 using AzureBackupTool.Models;
+using AzureBackupTool.Options;
 using Dapper;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;

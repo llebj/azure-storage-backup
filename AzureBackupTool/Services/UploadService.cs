@@ -3,6 +3,7 @@ using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using AzureBackupTool.Models;
+using AzureBackupTool.Options;
 using Dapper;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Options;
@@ -11,7 +12,6 @@ namespace AzureBackupTool.Services;
 
 public class UploadService
 {
-
     private readonly string _connectionString;
     private readonly string _output;
     private readonly ILogger<UploadService> _logger;

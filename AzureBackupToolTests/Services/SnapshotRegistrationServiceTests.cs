@@ -4,6 +4,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
 using MsOptions = Microsoft.Extensions.Options;
 using System.Collections.Immutable;
+using AzureBackupTool.Options;
 
 namespace AzureBackupTool.Services.Tests;
 

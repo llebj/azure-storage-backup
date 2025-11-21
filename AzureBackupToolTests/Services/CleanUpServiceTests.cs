@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using AzureBackupTool.Models;
+using AzureBackupTool.Options;
 using Dapper;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -29,11 +30,11 @@ public class CleanUpServiceTests : IDisposable
 
         _service = new CleanUpService(
             new NullLogger<CleanUpService>(),
-            MsOptions.Options.Create(new CleanupOptions(_dbPath)));
+            MsOptions.Options.Create(new CleanUpOptions(_dbPath)));
     }
 
     [Fact]
-    public async Task DeletesArchivesForUploadedBlobs()
+    public void DeletesArchivesForUploadedBlobs()
     {
         // Arrange
         var batchDir = Path.Combine(_directory, "batch_001");
@@ -59,7 +60,7 @@ public class CleanUpServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task IgnoresDeletedArchives()
+    public void IgnoresDeletedArchives()
     {
         // Arrange
         var batchDir = Path.Combine(_directory, "batch_001");
@@ -86,7 +87,7 @@ public class CleanUpServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task IgnoresNonUploadedArchives()
+    public void IgnoresNonUploadedArchives()
     {
         // Arrange
         var dirOne = Path.Combine(_directory, "batch_001");

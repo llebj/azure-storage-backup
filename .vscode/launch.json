@@ -10,7 +10,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/AzureBackupTool/bin/Debug/net8.0/AzureBackupTool.dll",
+            "program": "${workspaceFolder}/AzureBackupTool/bin/Debug/net9.0/AzureBackupTool.dll",
             "args": [],
             "cwd": "${workspaceFolder}/AzureBackupTool",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console

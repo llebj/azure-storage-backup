@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using AzureBackupTool.Models;
+using AzureBackupTool.Options;
 using Dapper;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Options;
@@ -13,7 +14,7 @@ public class CleanUpService
 
     public CleanUpService(
         ILogger<CleanUpService> logger,
-        IOptions<CleanupOptions> options)
+        IOptions<CleanUpOptions> options)
     {
         _logger = logger;
         SqliteConnectionStringBuilder connectionStringBuilder = new()

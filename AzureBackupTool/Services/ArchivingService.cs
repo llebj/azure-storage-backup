@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Formats.Tar;
 using System.IO.Compression;
 using AzureBackupTool.Models;
+using AzureBackupTool.Options;
 using Dapper;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Options;
