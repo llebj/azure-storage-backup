@@ -24,6 +24,7 @@ public class Worker : BackgroundService
         _cleanUpService = cleanUpService;
     }
 
+    // TODO: Perform benchmarking of these operations
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         PeriodicTimer timer = new(TimeSpan.FromSeconds(10));

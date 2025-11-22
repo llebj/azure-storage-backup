@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Formats.Tar;
 using System.IO.Compression;
 using AzureBackupTool.Models;
@@ -98,13 +99,23 @@ public class ArchivingService
             throw new InvalidOperationException($"Unable to process snapshot {snapshot}: archive {archiveName} already exists");
         }
 
-        using FileStream stream = File.Create(archiveName);
-        using GZipStream gz = new(stream, CompressionMode.Compress);
-        await TarFile.CreateFromDirectoryAsync(
-            snapshot,
-            gz,
-            false,
-            cancellationToken);
+        // Switched to using tar as TarFile.CreateFromDirectoryAsyc seems to ignore dotfiles
+        // TODO: Experiment with using the TarWriter directly and compare performance against tar
+        ProcessStartInfo processStartInfo = new()
+        {
+            FileName = "tar",
+            Arguments = $"-czf \"{archiveName}\" -C \"{Path.GetDirectoryName(snapshot)}\" \"{Path.GetFileName(snapshot)}\"",
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+        using var process = Process.Start(processStartInfo);
+        await process!.WaitForExitAsync(cancellationToken);
+        if (process.ExitCode != 0)
+        {
+            var error = await process.StandardError.ReadToEndAsync();
+            throw new InvalidOperationException($"tar failed to create archive: {error}");
+        }
+
         _logger.LogInformation("Successfully created archive for snapshot {Snapshot}.", snapshot);
         return archiveName;
     }

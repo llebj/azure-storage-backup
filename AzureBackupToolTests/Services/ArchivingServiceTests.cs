@@ -52,6 +52,10 @@ public class ArchivingServiceTests : IDisposable
         Directory.CreateDirectory(deepDir);
         File.WriteAllText(Path.Combine(deepDir, "file4.txt"), "content 4");
 
+        var hiddenDir = Path.Combine(batchDir, ".hidden");
+        Directory.CreateDirectory(hiddenDir);
+        File.WriteAllText(Path.Combine(hiddenDir, "file5.txt"), "content 5");
+
         var query = @"
             INSERT INTO snapshots (name, status)
             VALUES (@name, @status);";
@@ -73,16 +77,18 @@ public class ArchivingServiceTests : IDisposable
         var (files, directories) = await ExtractArchiveContents(archivePath);
 
         // Verify all files are present with correct content
-        Assert.Equal(4, files.Count);
+        Assert.Equal(5, files.Count);
         Assert.Contains(files, kvp => kvp.Key.EndsWith("file1.txt") && kvp.Value == "content 1");
         Assert.Contains(files, kvp => kvp.Key.EndsWith("file2.txt") && kvp.Value == "content 2");
         Assert.Contains(files, kvp => kvp.Key.EndsWith("subdir/file3.txt") && kvp.Value == "content 3");
         Assert.Contains(files, kvp => kvp.Key.EndsWith("nested/file4.txt") && kvp.Value == "content 4");
+        Assert.Contains(files, kvp => kvp.Key.EndsWith(".hidden/file5.txt") && kvp.Value == "content 5");
 
         // Verify directory structure is preserved
         Assert.True(directories.Count > 0);
         Assert.Contains(directories, name => name.Contains("subdir"));
         Assert.Contains(directories, name => name.Contains("nested"));
+        Assert.Contains(directories, name => name.Contains(".hidden"));
     }
 
     [Fact]
