@@ -1,0 +1,44 @@
+#!/bin/bash
+
+set -euo pipefail
+
+source="$1"
+destination="$2"
+
+if [[ ! -d "$source" ]]; then
+	echo "ERROR: Invalid source directory provided"
+	exit 1
+fi
+
+if [[ ! -d "$destination" ]]; then
+	echo "ERROR: No valid output directory provided"
+	exit 1
+fi
+
+# machine-id is used as a unique identifier for the device as hostname is not
+# guaranteed to be unique (neither is machine-id, but it is less likely)
+machine_id=$(cat /etc/machine-id)
+
+if [[ -z "$machine_id" ]]; then
+	echo "ERROR: Could not read machine-id value"
+	exit 1
+fi
+
+# We compute a truncated SHA256 hash to protect the sensitive machine-id value
+uid=$(echo "$machine_id" | sha256sum | head -c 8)
+
+# WARNING: This pipeline will not fail cleanly if the current user does not 
+# WARNING: have sufficient permissions to run the `btrfs` command.
+subvolume_name=$(btrfs subvolume show "$source" | head -1 | xargs basename)
+
+date=$(date +%Y%m%d%H%M%S)
+snapshot_name="${uid}-${subvolume_name}-${date}"
+
+hostname=$(hostnamectl --static)
+
+if [[ -n "$hostname" ]]; then
+	snapshot_name="${hostname}-${snapshot_name}"
+fi
+
+btrfs subvolume snapshot -r "$source" "$destination/$snapshot_name"
+

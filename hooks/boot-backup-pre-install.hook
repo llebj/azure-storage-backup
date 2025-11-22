@@ -1,0 +1,16 @@
+[Trigger]
+Operation = Upgrade
+Operation = Install
+Operation = Remove
+Type = Path
+Target = usr/lib/modules/*/vmlinuz
+
+[Action]
+Depends = bash
+Depends = coreutils
+Depends = tar
+Description = Archiving up /boot...
+When = PreTransaction
+Exec = /usr/bin/bash -c 'mkdir -p /.boot && (cd /boot && tar --xattrs -cpf /.boot/boot$(date +%Y%m%d%H%M).tar .)'
+AbortOnFail
+

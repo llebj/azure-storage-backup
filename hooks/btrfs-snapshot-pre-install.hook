@@ -1,0 +1,16 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Operation = Remove
+Type = Package
+Target = *
+
+[Action]
+Description = Creating btrfs snapshot of / ...
+When = PreTransaction
+Exec = /usr/local/bin/btrfs-snapshot / /.snapshots/
+Depends = bash
+Depends = coreutils
+Depends = systemd
+Depends = btrfs-progs
+AbortOnFail
