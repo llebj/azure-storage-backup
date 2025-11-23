@@ -1,0 +1,27 @@
+#!/bin/bash
+
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
+dotnet publish ../AzureBackupTool/AzureBackupTool.csproj \
+    --configuration Release \
+    --self-contained \
+    --runtime linux-x64 \
+    --output /opt/AzureBackupTool
+
+ln --force --symbolic /opt/AzureBackupTool/AzureBackupTool /usr/local/bin/azure-storage-backup
+
+# create sqlite database in /var/lib/azure-storage-backup
+mkdir --parents /var/lib/azure-storage-backup
+if [[ ! -f /var/lib/azure-storage-backup/source.db ]]; then
+    ./create-db /var/lib/azure-storage-backup/source.db
+fi
+
+# create config directory in /etc/azure-storage-backup
+mkdir --parents /etc/azure-storage-backup
+if [[ -f /etc/azure-storage-backup/appsettings.json ]]; then
+    mv /etc/azure-storage-backup/appsettings.json "/etc/azure-storage-backup/appsettings.$(date +%s).json"
+fi
+
+cp /opt/AzureBackupTool/appsettings.json /etc/azure-storage-backup/appsettings.json

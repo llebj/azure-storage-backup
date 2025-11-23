@@ -4,4 +4,5 @@ set -eu
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
+trap 'rm -f "${1}"' ERR
 sqlite3 "${1}" < ./create.sql

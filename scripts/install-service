@@ -1,0 +1,8 @@
+#!/bin/bash
+
+set -eu
+
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
+cp --force ../units/azure-storage-backup.service /etc/systemd/system
+systemctl daemon-reload

@@ -1,0 +1,11 @@
+[Unit]
+Description=Executes the azure-storage-backup program
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/azure-storage-backup
+
+[Install]
+WantedBy=multi-user.target

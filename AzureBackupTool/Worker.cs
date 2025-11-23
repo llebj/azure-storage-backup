@@ -27,10 +27,10 @@ public class Worker : BackgroundService
     // TODO: Perform benchmarking of these operations
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        PeriodicTimer timer = new(TimeSpan.FromSeconds(10));
+        PeriodicTimer timer = new(TimeSpan.FromSeconds(60));
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
-            _logger.LogInformation("Executing backup procedure at {Time}", DateTimeOffset.UtcNow);
+            _logger.LogDebug("Executing backup procedure at {Time}", DateTimeOffset.UtcNow);
             _snapshotRegistrationService.RegisterSnapshots();
             await _archivingService.BuildArchives(stoppingToken);
             await _uploadService.UploadArchives(stoppingToken);

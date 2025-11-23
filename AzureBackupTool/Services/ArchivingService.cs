@@ -101,6 +101,7 @@ public class ArchivingService
 
         // Switched to using tar as TarFile.CreateFromDirectoryAsyc seems to ignore dotfiles
         // TODO: Experiment with using the TarWriter directly and compare performance against tar
+        // TODO: In prod write these to /var
         ProcessStartInfo processStartInfo = new()
         {
             FileName = "tar",

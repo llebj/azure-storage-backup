@@ -6,8 +6,10 @@ using Microsoft.Extensions.Hosting.Systemd;
 
 var builder = Host.CreateApplicationBuilder(args);
 var env = builder.Environment;
+var basePath = AppContext.BaseDirectory;
 
 builder.Configuration
+    .SetBasePath(basePath)
     .AddJsonFile("appsettings.json")
     .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true);
 
