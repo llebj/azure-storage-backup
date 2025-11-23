@@ -2,13 +2,21 @@ using AzureBackupTool;
 using AzureBackupTool.Extensions;
 using AzureBackupTool.Options;
 using AzureBackupTool.Services;
+using Microsoft.Extensions.Hosting.Systemd;
 
 var builder = Host.CreateApplicationBuilder(args);
 var env = builder.Environment;
 
 builder.Configuration
-    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-    .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true);
+    .AddJsonFile("appsettings.json")
+    .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true);
+
+if (env.IsProduction())
+{
+    // Optionally read from the global configuration defined in /etc
+    builder.Configuration
+        .AddJsonFile("/etc/azure-storage-backup/appsettings.json", optional: true);
+}
 
 ProgramOptions programOptions = new();
 builder.Configuration.GetSection(ProgramOptions.Key).Bind(programOptions);
@@ -51,6 +59,12 @@ builder.Services.AddSingleton<CleanUpService>();
 builder.Services.ConfigureStorageClient(builder.Configuration, programOptions.StorageHosting);
 
 builder.Services.AddHostedService<Worker>();
+
+builder.Services.AddSystemd();
+if (SystemdHelpers.IsSystemdService())
+{
+    builder.Logging.AddSystemdConsole();
+}
 
 var host = builder.Build();
 host.Run();

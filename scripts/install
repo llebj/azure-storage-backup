@@ -1,0 +1,8 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# publish application to /opt/AzureBackupTool
+# create symlink in /usr/local/bin/azure-storage-backup -> /opt/AzureBackupTool/AzureBackupTool
+# create sqlite database in /var/lib/azure-storage-backup
+# create config directory in /etc/azure-storage-backup
