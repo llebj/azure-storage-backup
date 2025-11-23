@@ -28,6 +28,7 @@ resource storage_account 'Microsoft.Storage/storageAccounts@2024-01-01' = {
   }
 }
 
+// TODO: remove blob versioning
 resource blob_service 'Microsoft.Storage/storageAccounts/blobServices@2024-01-01' = {
   parent: storage_account
   name: 'default'

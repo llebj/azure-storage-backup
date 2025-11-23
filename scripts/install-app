@@ -19,6 +19,7 @@ if [[ ! -f /var/lib/azure-storage-backup/source.db ]]; then
 fi
 
 # create config directory in /etc/azure-storage-backup
+# TODO: reverse this; original file should be left alone and now should have extension
 mkdir --parents /etc/azure-storage-backup
 if [[ -f /etc/azure-storage-backup/appsettings.json ]]; then
     mv /etc/azure-storage-backup/appsettings.json "/etc/azure-storage-backup/appsettings.$(date +%s).json"
