@@ -13,7 +13,7 @@ param storage_account_name string
 
 param storage_sku string = 'Standard_LRS'
 
-resource storage_account 'Microsoft.Storage/storageAccounts@2024-01-01' = {
+resource storage_account 'Microsoft.Storage/storageAccounts@2025-06-01' = {
   name: storage_account_name
   location: location
   sku: {
@@ -28,8 +28,7 @@ resource storage_account 'Microsoft.Storage/storageAccounts@2024-01-01' = {
   }
 }
 
-// TODO: remove blob versioning
-resource blob_service 'Microsoft.Storage/storageAccounts/blobServices@2024-01-01' = {
+resource blob_service 'Microsoft.Storage/storageAccounts/blobServices@2025-06-01' = {
   parent: storage_account
   name: 'default'
   properties: {
@@ -38,15 +37,13 @@ resource blob_service 'Microsoft.Storage/storageAccounts/blobServices@2024-01-01
       days: 7
     }
     deleteRetentionPolicy: {
-      allowPermanentDelete: false
       enabled: true
       days: 7
     }
-    isVersioningEnabled: true
   }
 }
 
-resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@2024-01-01' = {
+resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@2025-06-01' = {
   parent: blob_service
   name: 'backups'
   properties: {
@@ -56,14 +53,14 @@ resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@20
   }
 }
 
-resource test_policies 'Microsoft.Storage/storageAccounts/managementPolicies@2021-04-01' = if (policy_definitions == 'test') {
+resource test_policies 'Microsoft.Storage/storageAccounts/managementPolicies@2025-06-01' = if (policy_definitions == 'test') {
   name: 'default'
   parent: storage_account
   properties: {
     policy: {
       rules: [
         {
-          name: 'delete-old-versions'
+          name: 'delete-old-blobs'
           enabled: true
           type: 'Lifecycle'
           definition: {
@@ -71,7 +68,7 @@ resource test_policies 'Microsoft.Storage/storageAccounts/managementPolicies@202
               blobTypes: ['blockBlob']
             }
             actions: {
-              version: {
+              baseBlob: {
                 delete: {
                   daysAfterCreationGreaterThan: 7
                 }
@@ -84,51 +81,60 @@ resource test_policies 'Microsoft.Storage/storageAccounts/managementPolicies@202
   }
 }
 
-resource policies 'Microsoft.Storage/storageAccounts/managementPolicies@2021-04-01' = if (policy_definitions == 'live') {
+resource policies 'Microsoft.Storage/storageAccounts/managementPolicies@2025-06-01' = if (policy_definitions == 'live') {
   name: 'default'
   parent: storage_account
   properties: {
     policy: {
       rules: [
         {
-          name: 'cool-store-versions'
+          name: 'cool-store-blobs'
           enabled: true
           type: 'Lifecycle'
           definition: {
             actions: {
-              version: {
+              baseBlob: {
                 tierToCool: {
-                  daysAfterCreationGreaterThan: 7
+                  daysAfterModificationGreaterThan: 7
                 }
               }
+            }
+            filters: {
+              blobTypes: ['blockBlob']
             }
           }
         }
         {
-          name: 'archive-old-versions'
+          name: 'archive-old-blobs'
           enabled: true
           type: 'Lifecycle'
           definition: {
             actions: {
-              version: {
+              baseBlob: {
                 tierToArchive: {
-                  daysAfterCreationGreaterThan: 37
+                  daysAfterModificationGreaterThan: 45
                 }
               }
+            }
+            filters: {
+              blobTypes: ['blockBlob']
             }
           }
         }
         {
-          name: 'delete-old-versions'
+          name: 'delete-old-blobs'
           enabled: true
           type: 'Lifecycle'
           definition: {
             actions: {
-              version: {
+              baseBlob: {
                 delete: {
-                  daysAfterCreationGreaterThan: 365
+                  daysAfterCreationGreaterThan: 730
                 }
               }
+            }
+            filters: {
+              blobTypes: ['blockBlob']
             }
           }
         }
