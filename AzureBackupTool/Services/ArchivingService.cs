@@ -14,6 +14,7 @@ public class ArchivingService
 {
     private readonly ILogger<ArchivingService> _logger;
     private readonly string _connectionString;
+    private readonly string _archiveOutputDirectory;
 
     public ArchivingService(
         ILogger<ArchivingService> logger,
@@ -25,16 +26,24 @@ public class ArchivingService
             DataSource = options.Value.DatabasePath
         };
         _connectionString = connectionStringBuilder.ToString();
+        _archiveOutputDirectory = options.Value.ArchiveOutputDirectory;
     }
 
     public async ValueTask BuildArchives(CancellationToken cancellationToken)
     {
         var snapshots = GetRegisteredSnapshots(_connectionString);
+        if (snapshots.Length == 0)
+        {
+            return;
+        }
+
         using SqliteConnection connection = new(_connectionString);
         connection.Open();
+        var archiveOutputDirectory = Directory.CreateDirectory(_archiveOutputDirectory);
         foreach (var snapshot in snapshots)
         {
-            var archiveName = $"{snapshot.Name}.tar.gz";
+            var fileName = new DirectoryInfo(snapshot.Name).Name;
+            var archiveName = Path.Combine(archiveOutputDirectory.FullName, $"{fileName}.tar.gz");
             // If the status is BuildingArchive then a previous attempt to build an archive was
             // interrupted either by cancellation or by program termination. We are able to recover
             // from this state by cleaning up any existing archive and proceeding as normal.

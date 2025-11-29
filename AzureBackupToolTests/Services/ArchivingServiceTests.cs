@@ -32,7 +32,7 @@ public class ArchivingServiceTests : IDisposable
 
         _service = new ArchivingService(
             new NullLogger<ArchivingService>(),
-            MsOptions.Options.Create(new ArchivingOptions(_dbPath)));
+            MsOptions.Options.Create(new ArchivingOptions(_dbPath, _directory)));
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public class ArchivingServiceTests : IDisposable
         ImmutableArray<Snapshot> archives = [.. _connection.Query<Snapshot>(outputQuery, new { status = Status.ArchiveBuilt })];
         Assert.Single(archives);
         Assert.Equal(batchDir, archives[0].Name);
-        Assert.Equal($"{batchDir}.tar.gz", archives[0].ArchiveName);
+        Assert.Equal(archivePath, archives[0].ArchiveName);
         Assert.Equal(Status.ArchiveBuilt, archives[0].Status);
 
         Assert.True(File.Exists(archivePath));
@@ -206,6 +206,46 @@ public class ArchivingServiceTests : IDisposable
         // Assert that the archive contents are valid
         Assert.True(File.Exists(archivePath));
         var (files, directories) = await ExtractArchiveContents(archivePath);
+        Assert.Single(files);
+        Assert.Contains(files, kvp => kvp.Key.EndsWith("file1.txt") && kvp.Value == "content 1");
+    }
+
+    [Fact]
+    public async Task CreatesOutputDirectoryIfItDoesNotExist()
+    {
+        // Arrange
+        var batchDir = Path.Combine(_directory, "batch_001");
+        Directory.CreateDirectory(batchDir);
+        File.WriteAllText(Path.Combine(batchDir, "file1.txt"), "content 1");
+
+        var query = @"
+            INSERT INTO snapshots (name, status)
+            VALUES (@name, @status);";
+        _connection.Execute(query, new { name = batchDir, status = Status.Registered });
+
+        // Act
+        var outputDirectory = Path.Combine(_directory, "output/dir");
+        ArchivingService service = new(
+            new NullLogger<ArchivingService>(),
+            MsOptions.Options.Create(new ArchivingOptions(
+                _dbPath,
+                outputDirectory))
+        );
+        await service.BuildArchives(CancellationToken.None);
+
+        // Assert
+        var archivePath = Path.Join(outputDirectory, "batch_001.tar.gz");
+        var outputQuery = "SELECT name, status, archive_name as ArchiveName FROM snapshots WHERE status = @status;";
+        ImmutableArray<Snapshot> archives = [.. _connection.Query<Snapshot>(outputQuery, new { status = Status.ArchiveBuilt })];
+        Assert.Single(archives);
+        Assert.Equal(batchDir, archives[0].Name);
+        Assert.Equal(archivePath, archives[0].ArchiveName);
+        Assert.Equal(Status.ArchiveBuilt, archives[0].Status);
+
+        Assert.True(File.Exists(archivePath));
+        var (files, directories) = await ExtractArchiveContents(archivePath);
+
+        // Verify all files are present with correct content
         Assert.Single(files);
         Assert.Contains(files, kvp => kvp.Key.EndsWith("file1.txt") && kvp.Value == "content 1");
     }

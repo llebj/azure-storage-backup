@@ -6,11 +6,13 @@ public class ProgramOptions
 {
     public const string Key = "Program";
 
+    public string ArchiveOutputDirectory { get; set; } = string.Empty;
+
     public string DatabasePath { get; set; } = string.Empty;
 
     public string TargetDirectoryPath { get; set; } = string.Empty;
 
-    public string Output { get; set; } = string.Empty;
+    public string DestinationContainer { get; set; } = string.Empty;
 
     public string StorageHosting { get; set; } = string.Empty;
 }

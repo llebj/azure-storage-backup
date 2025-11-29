@@ -40,7 +40,7 @@ public class UploadService
         };
         _connectionString = connectionStringBuilder.ToString();
         _blobServiceClient = blobServiceClient;
-        _output = options.Value.Output;
+        _output = options.Value.DestinationContainer;
     }
 
     public async ValueTask UploadArchives(CancellationToken cancellationToken)

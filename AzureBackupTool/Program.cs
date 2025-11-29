@@ -38,6 +38,7 @@ builder.Services.AddOptions<ArchivingOptions>()
     {
         var built = programOptions.BuildArchivingOptions();
         options.DatabasePath = built.DatabasePath;
+        options.ArchiveOutputDirectory = built.ArchiveOutputDirectory;
     });
 builder.Services.AddSingleton<ArchivingService>();
 
@@ -46,7 +47,7 @@ builder.Services.AddOptions<UploadOptions>()
     {
         var built = programOptions.BuildUploadOptions();
         options.DatabasePath = built.DatabasePath;
-        options.Output = built.Output;
+        options.DestinationContainer = built.DestinationContainer;
     });
 builder.Services.AddSingleton<UploadService>();
 
