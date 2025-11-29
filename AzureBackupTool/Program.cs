@@ -29,7 +29,7 @@ builder.Services.AddOptions<SnapshotRegistrationOptions>()
     {
         var built = programOptions.BuildSnapshotRegistrationOptions();
         options.DatabasePath = built.DatabasePath;
-        options.TargetDirectoryPath = built.TargetDirectoryPath;
+        options.SourceDirectory = built.SourceDirectory;
     });
 builder.Services.AddSingleton<SnapshotRegistrationService>();
 

@@ -30,7 +30,7 @@ public class SnapshotRegistrationService
     {
         var snapshots = GetNamesOfExistingSnapshots(_connectionString);
         var newSnapshotsToRegister = Directory
-            .EnumerateDirectories(_options.TargetDirectoryPath)
+            .EnumerateDirectories(_options.SourceDirectory)
             .Where(d => !snapshots.Contains(d))
             .Select(d => new Snapshot(d))
             .ToImmutableArray();

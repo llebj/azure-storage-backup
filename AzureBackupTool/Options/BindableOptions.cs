@@ -10,7 +10,7 @@ public class ProgramOptions
 
     public string DatabasePath { get; set; } = string.Empty;
 
-    public string TargetDirectoryPath { get; set; } = string.Empty;
+    public string SourceDirectory { get; set; } = string.Empty;
 
     public string DestinationContainer { get; set; } = string.Empty;
 

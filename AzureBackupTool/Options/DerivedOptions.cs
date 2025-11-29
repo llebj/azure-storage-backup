@@ -4,14 +4,14 @@ public class SnapshotRegistrationOptions
 {
     public SnapshotRegistrationOptions() { }
 
-    public SnapshotRegistrationOptions(string databasePath, string targetDirectoryPath)
+    public SnapshotRegistrationOptions(string databasePath, string sourceDirectory)
     {
         DatabasePath = databasePath;
-        TargetDirectoryPath = targetDirectoryPath;
+        SourceDirectory = sourceDirectory;
     }
 
     public string DatabasePath { get; set; } = string.Empty;
-    public string TargetDirectoryPath { get; set; } = string.Empty;
+    public string SourceDirectory { get; set; } = string.Empty;
 }
 
 public class ArchivingOptions
@@ -57,7 +57,7 @@ public class CleanUpOptions
 public static class ProgramOptionsExtensions
 {
     public static SnapshotRegistrationOptions BuildSnapshotRegistrationOptions(this ProgramOptions options)
-        => new(options.DatabasePath, options.TargetDirectoryPath);
+        => new(options.DatabasePath, options.SourceDirectory);
 
     public static ArchivingOptions BuildArchivingOptions(this ProgramOptions options)
         => new(options.DatabasePath, options.ArchiveOutputDirectory);
