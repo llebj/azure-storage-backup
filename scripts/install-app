@@ -4,6 +4,8 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
+echo "Installing azure-storage-backup..."
+
 dotnet publish ../AzureBackupTool/AzureBackupTool.csproj \
     --configuration Release \
     --self-contained \
@@ -15,14 +17,19 @@ ln --force --symbolic /opt/AzureBackupTool/AzureBackupTool /usr/local/bin/azure-
 # create sqlite database in /var/lib/azure-storage-backup
 mkdir --parents /var/lib/azure-storage-backup
 if [[ ! -f /var/lib/azure-storage-backup/source.db ]]; then
+    echo "Initialising database..."
     ./create-db /var/lib/azure-storage-backup/source.db
+else
+    echo "Existing database detected."
 fi
 
 # create config directory in /etc/azure-storage-backup
-# TODO: reverse this; original file should be left alone and now should have extension
 mkdir --parents /etc/azure-storage-backup
+file="/etc/azure-storage-backup/appsettings.json"
 if [[ -f /etc/azure-storage-backup/appsettings.json ]]; then
-    mv /etc/azure-storage-backup/appsettings.json "/etc/azure-storage-backup/appsettings.$(date +%s).json"
+    echo "Found existing appsettings file."
+    echo "appsettings.new.json must be checked for required merges."
+    file="/etc/azure-storage-backup/appsettings.new.json"
 fi
 
-cp /opt/AzureBackupTool/appsettings.json /etc/azure-storage-backup/appsettings.json
+cp /opt/AzureBackupTool/appsettings.json "${file}"

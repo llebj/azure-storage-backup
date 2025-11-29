@@ -38,6 +38,7 @@ public class CleanUpService
             _logger.LogDebug(
                 "Updating snapshot {SnapshotName} to be in the {Status} state.",
                 snapshot.Name, Status.ArchiveRemoved);
+            // TODO: remove archive name from database record as the file no longer exists
             connection.Execute(
                 "UPDATE snapshots SET status = @status WHERE name = @name;",
                 new
