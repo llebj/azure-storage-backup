@@ -1,0 +1,17 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Operation = Remove
+Type = Package
+Target = *
+
+[Action]
+Description = Removing old snapshots ...
+When = PostTransaction
+Exec = /usr/local/bin/remove-old-snapshots
+Depends = bash
+Depends = coreutils
+Depends = btrfs-progs
+Depends = jq
+Depends = sqlite
+AbortOnFail

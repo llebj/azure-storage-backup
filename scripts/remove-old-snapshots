@@ -1,0 +1,54 @@
+#!/bin/bash
+
+set -euo pipefail
+
+snapshots_to_keep=5
+
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
+echo "Removing old snapshots ..."
+
+config_file="${1:-/etc/azure-storage-backup/appsettings.json}"
+
+if [[ ! -f "${config_file}" ]]; then
+    echo "Configuration file does not exist: ${config_file}"
+    exit 1
+fi
+
+echo "Attempting to retrieve database path from ${config_file} ..."
+
+database=$(jq -r '.Program.DatabasePath' "${config_file}")
+if [[ ! -f "${database}" ]]; then
+    echo "Database file does not exist: ${database}"
+    exit 1
+fi
+
+echo "Attempting to count processed snapshots from ${database} ..."
+
+snapshot_count=$(sqlite3 "${database}" 'SELECT COUNT(*) FROM snapshots WHERE status = 5;')
+num_snapshots_to_remove=$(( snapshot_count - snapshots_to_keep ))
+
+if (( num_snapshots_to_remove <= 0 )); then
+    echo "No snapshots to remove."
+    exit 0
+fi
+
+echo "Attempting to remove ${num_snapshots_to_remove} old snapshots ..."
+snapshots_to_remove=$(sqlite3 "${database}" " \
+    SELECT name \
+    FROM snapshots \
+    WHERE status = 5 \
+    ORDER BY name \
+    LIMIT ${num_snapshots_to_remove};")
+
+for snapshot in ${snapshots_to_remove} ; do 
+    echo "Removing ${snapshot} ..."
+    btrfs subvolume delete "${snapshot}"
+    sqlite3 "${database}" <<EOF
+        .param init 
+        .param set :name "${snapshot}" 
+        DELETE FROM snapshots WHERE name = :name;
+    EOF
+done
+
+echo "Successfully removed old snapshots"
