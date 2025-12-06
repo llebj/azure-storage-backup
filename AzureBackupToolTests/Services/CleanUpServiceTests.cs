@@ -56,7 +56,8 @@ public class CleanUpServiceTests : IDisposable
         Assert.Single(archives);
         Assert.Equal(Status.ArchiveRemoved, archives[0].Status);
         Assert.True(Directory.Exists(archives[0].Name));
-        Assert.False(File.Exists(archives[0].ArchiveName));
+        Assert.Null(archives[0].ArchiveName);
+        Assert.False(File.Exists(batchPath));
     }
 
     [Fact]

@@ -44,11 +44,8 @@ snapshots_to_remove=$(sqlite3 "${database}" " \
 for snapshot in ${snapshots_to_remove} ; do 
     echo "Removing ${snapshot} ..."
     btrfs subvolume delete "${snapshot}"
-    sqlite3 "${database}" <<EOF
-        .param init 
-        .param set :name "${snapshot}" 
-        DELETE FROM snapshots WHERE name = :name;
-    EOF
+    # TODO: find a way of protecting against injection
+    sqlite3 "${database}" "DELETE FROM snapshots WHERE name = '${snapshot}'"; 
 done
 
 echo "Successfully removed old snapshots"

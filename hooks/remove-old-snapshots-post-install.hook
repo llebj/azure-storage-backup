@@ -14,4 +14,3 @@ Depends = coreutils
 Depends = btrfs-progs
 Depends = jq
 Depends = sqlite
-AbortOnFail

@@ -38,9 +38,9 @@ public class CleanUpService
             _logger.LogDebug(
                 "Updating snapshot {SnapshotName} to be in the {Status} state.",
                 snapshot.Name, Status.ArchiveRemoved);
-            // TODO: remove archive name from database record as the file no longer exists
+            // We set archive_name to NULL as the file no longer exists.
             connection.Execute(
-                "UPDATE snapshots SET status = @status WHERE name = @name;",
+                "UPDATE snapshots SET status = @status, archive_name = NULL WHERE name = @name;",
                 new
                 {
                     status = Status.ArchiveRemoved,
