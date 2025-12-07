@@ -88,40 +88,6 @@ resource policies 'Microsoft.Storage/storageAccounts/managementPolicies@2025-06-
     policy: {
       rules: [
         {
-          name: 'cool-store-blobs'
-          enabled: true
-          type: 'Lifecycle'
-          definition: {
-            actions: {
-              baseBlob: {
-                tierToCool: {
-                  daysAfterModificationGreaterThan: 7
-                }
-              }
-            }
-            filters: {
-              blobTypes: ['blockBlob']
-            }
-          }
-        }
-        {
-          name: 'archive-old-blobs'
-          enabled: true
-          type: 'Lifecycle'
-          definition: {
-            actions: {
-              baseBlob: {
-                tierToArchive: {
-                  daysAfterModificationGreaterThan: 45
-                }
-              }
-            }
-            filters: {
-              blobTypes: ['blockBlob']
-            }
-          }
-        }
-        {
           name: 'delete-old-blobs'
           enabled: true
           type: 'Lifecycle'
@@ -129,7 +95,7 @@ resource policies 'Microsoft.Storage/storageAccounts/managementPolicies@2025-06-
             actions: {
               baseBlob: {
                 delete: {
-                  daysAfterCreationGreaterThan: 730
+                  daysAfterCreationGreaterThan: 365
                 }
               }
             }
