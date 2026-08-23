@@ -1,120 +1,91 @@
-#include <ctype.h>
-#include <stdbool.h>
+#include <fcntl.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
-#define KEY_BUF_SIZE 32
-#define VAL_BUF_SIZE 1024
-
-enum ProfileType {
-	PreInstall
-};
-
-struct profile {
-	char* name;
-	char* source;
-	char* destination;
-	enum ProfileType type;
-};
-
-uint8_t config_line(FILE *fp, char *key, char *value);
+int8_t count_profiles(char* buf, size_t size);
 
 int main(int argc, char** argv)
 {
 	if (argc != 2) {
-		fprintf(stderr, "%s: incorrect number of parameters profided.\n", argv[0]);
-		exit(0);
-	}
-	FILE *config;
-	if ((config = fopen(argv[1], "r")) == NULL) {
-		fprintf(stderr, "%s: failed to open config file: %s\n", argv[0], argv[1]);
-		exit(1);
+		fprintf(stderr, "Usage: %s <path>\n", argv[0]);
+		exit(EXIT_FAILURE);
 	}
 
-	struct profile profile = {
-		.name = NULL,
-		.type = PreInstall,
-		.source = NULL,
-		.destination = NULL
-	};
-	char key[KEY_BUF_SIZE] = {0},
-	     value[VAL_BUF_SIZE] = {0};
-	// TODO: Fix termination condition (EOF)
-	do {
-		if (config_line(config, key, value) != 0) {
-			fprintf(stderr, "%s: failed to parse config file.\n", argv[0]);
-			exit(2);
-		}
-		char* ptr;
-		if (strcmp(key, "Name") == 0) {
-			if ((ptr = malloc(strlen(value))) == NULL) {
-				exit(2);
-			}
-			strcpy(ptr, value);
-			profile.name = ptr;
-		}
-		else if (strcmp(key, "Source") == 0) {
-			if ((ptr = malloc(strlen(value))) == NULL) {
-				exit(2);
-			}
-			strcpy(ptr, value);
-			profile.source = ptr;
-		}
-		else if (strcmp(key, "Destination") == 0) {
-			if ((ptr = malloc(strlen(value))) == NULL) {
-				exit(2);
-			}
-			strcpy(ptr, value);
-			profile.destination = ptr;
-		}
-		else if (strcmp(key, "Type") == 0) {
-			continue;
-		}
-		else {
-			fprintf(stderr, "%s: invalid parameter found in config file: %s\n",
-				argv[0], key);
-			exit(2);
-		}
-	} while (!feof(config));
+	struct stat sb;
+	if (stat(argv[1], &sb) == -1) {
+		perror("stat");
+		exit(EXIT_FAILURE);
+	}
+	if (!S_ISREG(sb.st_mode)) {
+		fprintf(stderr, "File %s is not a regular file\n", argv[1]);
+		exit(EXIT_FAILURE);
+	}
+
+	int fd;
+	if ((fd = open(argv[1], O_RDONLY)) == -1) {
+		perror("open");
+		exit(EXIT_FAILURE);
+	}
+	
+	char *fb;
+	if ((fb = malloc(sizeof *fb * sb.st_size)) == NULL) {
+		fprintf(stderr, "Failed to allocate file buffer.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (read(fd, fb, sb.st_size) == -1) {
+		perror("read");
+		exit(EXIT_FAILURE);
+	}
+	uint8_t profile_count = count_profiles(fb, sb.st_size);
+
+	// allocate profile buffer
+	// parse profiles
 }
 
-uint8_t config_line(FILE *fp, char *key, char *value)
+const char* profile_header = "profile";
+
+int8_t count_profiles(char* buf, size_t size)
 {
-	uint8_t result = 0;
-	key[0] = '\0';
-	value[0] = '\0';
-	// We always start by parsing the key.
-	char* buf = key;
-	uint32_t limit = KEY_BUF_SIZE,
-		 current = 0;
-
-	for (int32_t c = getc(fp); c != EOF || c != '\n'; c = getc(fp)) {
-		if (isblank(c)) {
+	uint32_t start = 0,
+		 cursor = 0;
+	int8_t count = 0;
+	for ( ; cursor < size; ++cursor, ++start) {
+		// Iterate until we find a section definition.
+		if (buf[cursor] != '[') {
 			continue;
 		}
-		if (current >= limit) {
-			// TODO: Better error handling.
-			result = 1;
+		// We have found a section definition, so now iterate until
+		// we find the end of the definition header.
+		for ( ; cursor < size; ++cursor) {
+			if (buf[cursor] != ']') {
+				continue;
+			}
 			break;
 		}
-		if (c == '=') {
-			buf[current] = '\0';
-			// Swap to parsing the value instead of the key.
-			buf = value;
-			limit = VAL_BUF_SIZE;
-			current = 0;
-			continue;
-		}
-		if (c == '\n') {
-			buf[current] = '\0';
-			// We have finished parsing the current line.
+		if (cursor == size) {
+			// The file is invalid as there is no matching closing
+			// bracket.
+			count = -1;
 			break;
 		}
 
-		buf[current++] = c;
+		// At this point `start` is pointing to '[' and `cursor` is
+		// pointing to ']'.
+		int is_equal = strncasecmp(&buf[start + 1], profile_header, strlen(profile_header)) != 0;
+		if (is_equal == 0) {
+			// The section is not a profile definition.
+			++count;
+		}
+		start = cursor;
 	}
-
-	return result;
+	
+	return count;
 }
+
