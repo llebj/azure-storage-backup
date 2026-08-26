@@ -8,6 +8,19 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+enum ProfileType {
+	Timer = 1,
+	PreInstall = 2,
+	PostInstall = 4
+};
+
+struct profile {
+	char* name;
+	char* source;
+	char* destination;
+	uint8_t type;
+};
+
 int8_t count_profiles(char* buf, size_t size);
 
 int main(int argc, char** argv)
@@ -46,6 +59,12 @@ int main(int argc, char** argv)
 	uint8_t profile_count = count_profiles(fb, sb.st_size);
 
 	// allocate profile buffer
+	struct profile *profiles;
+	if ((profiles = malloc(sizeof *profiles * profile_count)) == NULL) {
+		fprintf(stderr, "Failed to allocate profile buffer.\n");
+		exit(EXIT_FAILURE);
+	}
+
 	// parse profiles
 }
 
@@ -56,20 +75,20 @@ int8_t count_profiles(char* buf, size_t size)
 	uint32_t start = 0,
 		 cursor = 0;
 	int8_t count = 0;
-	for ( ; cursor < size; ++cursor, ++start) {
+	for ( ; cursor < size || buf[cursor] != EOF; ++cursor, ++start) {
 		// Iterate until we find a section definition.
 		if (buf[cursor] != '[') {
 			continue;
 		}
 		// We have found a section definition, so now iterate until
 		// we find the end of the definition header.
-		for ( ; cursor < size; ++cursor) {
+		for ( ; cursor < size || buf[cursor] != EOF; ++cursor) {
 			if (buf[cursor] != ']') {
 				continue;
 			}
 			break;
 		}
-		if (cursor == size) {
+		if (cursor == size || buf[cursor] == EOF) {
 			// The file is invalid as there is no matching closing
 			// bracket.
 			count = -1;
