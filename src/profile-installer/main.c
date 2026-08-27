@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -21,7 +22,7 @@ struct profile {
 	uint8_t type;
 };
 
-int8_t count_profiles(char* buf, size_t size);
+bool count_profiles(size_t *count, char* buf, size_t buf_size);
 
 int main(int argc, char** argv)
 {
@@ -56,7 +57,12 @@ int main(int argc, char** argv)
 		perror("read");
 		exit(EXIT_FAILURE);
 	}
-	uint8_t profile_count = count_profiles(fb, sb.st_size);
+
+	size_t profile_count = 0;
+	if (!count_profiles(&profile_count, fb, sb.st_size)) {
+		fprintf(stderr, "Profile configuration file is invalid.\n");
+		exit(EXIT_FAILURE);
+	}
 
 	// allocate profile buffer
 	struct profile *profiles;
@@ -68,43 +74,63 @@ int main(int argc, char** argv)
 	// parse profiles
 }
 
-const char* profile_header = "profile";
+const char* profile_header = "Profile";
 
-int8_t count_profiles(char* buf, size_t size)
+bool count_profiles(size_t *count, char* buf, size_t buf_size)
 {
-	uint32_t start = 0,
-		 cursor = 0;
-	int8_t count = 0;
-	for ( ; cursor < size || buf[cursor] != EOF; ++cursor, ++start) {
+	size_t cursor = 0;
+	bool success = true;
+	*count = 0;
+	for ( ; cursor < buf_size; ++cursor) {
 		// Iterate until we find a section definition.
 		if (buf[cursor] != '[') {
 			continue;
 		}
+
+		size_t follow = cursor;
 		// We have found a section definition, so now iterate until
 		// we find the end of the definition header.
-		for ( ; cursor < size || buf[cursor] != EOF; ++cursor) {
+		for ( ; cursor < buf_size; ++cursor) {
 			if (buf[cursor] != ']') {
 				continue;
 			}
 			break;
 		}
-		if (cursor == size || buf[cursor] == EOF) {
+		if (cursor == buf_size) {
 			// The file is invalid as there is no matching closing
 			// bracket.
-			count = -1;
+			success = false;
 			break;
 		}
 
-		// At this point `start` is pointing to '[' and `cursor` is
-		// pointing to ']'.
-		int is_equal = strncasecmp(&buf[start + 1], profile_header, strlen(profile_header)) != 0;
-		if (is_equal == 0) {
-			// The section is not a profile definition.
-			++count;
+		// At this point `follow` is pointing to '[' and `cursor` is
+		// pointing to ']'. We start the comparison from the first character
+		// following the `[`.
+		if (strncmp(&buf[follow + 1], profile_header, strlen(profile_header)) == 0) {
+			++*count;
 		}
-		start = cursor;
 	}
 	
-	return count;
+	return success;
+}
+
+enum ParserState {
+	Sentinel,
+	ProfileHeader,
+	Key,
+	Value,
+	Invalid
+};
+
+void parse_profiles(
+		struct profile *profiles, size_t profiles_size,
+		char* buf, size_t buf_size)
+{
+	enum ParserState state = Sentinel;
+	size_t cursor = 0,
+	       follow = 0;
+	// move cursor to next special char
+	// validate state
+	// consume chars
 }
 
