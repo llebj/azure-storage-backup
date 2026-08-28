@@ -20,12 +20,12 @@ struct profile {
 	uint8_t type;
 };
 
-bool count_profiles(size_t *count, char* buf, size_t buf_size);
+bool count_profiles(size_t *count, char *buf, size_t buf_size);
 bool parse_profiles(
 		struct profile *profiles, size_t profiles_size,
 		char* buf, size_t buf_size);
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
 	if (argc != 2) {
 		fprintf(stderr, "Usage: %s <path>\n", argv[0]);
@@ -76,7 +76,7 @@ int main(int argc, char** argv)
 
 const char* profile_header = "Profile";
 
-bool count_profiles(size_t *count, char* buf, size_t buf_size)
+bool count_profiles(size_t *count, char *buf, size_t buf_size)
 {
 	size_t cursor = 0;
 	bool success = true;
@@ -128,7 +128,7 @@ enum ParserState transition(enum ParserState current, char input);
 
 bool parse_profiles(
 		struct profile *profiles, size_t profiles_size,
-		char* buf, size_t buf_size)
+		char *buf, size_t buf_size)
 {
 	bool result = true;
 	enum ParserState current_state = Initial;
@@ -265,4 +265,3 @@ enum ParserState transition(enum ParserState initial, char input)
 	}
 	return final;
 }
-
