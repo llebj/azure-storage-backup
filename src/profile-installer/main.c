@@ -78,10 +78,9 @@ const char* profile_header = "Profile";
 
 bool count_profiles(size_t *count, char *buf, size_t buf_size)
 {
-	size_t cursor = 0;
 	bool success = true;
 	*count = 0;
-	for ( ; cursor < buf_size; ++cursor) {
+	for (size_t cursor = 0; cursor < buf_size; ++cursor) {
 		// Iterate until we find a section definition.
 		if (buf[cursor] != '[') {
 			continue;
@@ -170,49 +169,49 @@ bool parse_profiles(
 	return result;
 }
 
-// Determine the following state based on the initial state and the input
-enum ParserState transition(enum ParserState initial, char input)
+// Determine the new state based on the current state and the input
+enum ParserState transition(enum ParserState current_state, char input)
 {
-	enum ParserState final = initial;
-	switch (initial) {
+	enum ParserState new_state = current_state;
+	switch (current_state) {
 	case Initial:
 		switch (input) {
 		case '[':
-			final = ParsingHeader;
+			new_state = ParsingHeader;
 			break;
 		case '\n':
 			break;
 		case ']':
 		case '=':
 		default:
-			final = Invalid;
+			new_state = Invalid;
 			break;
 		}
 		break;
 	case Intermediate:
 		switch (input) {
 		case '[':
-			final = ParsingHeader;
+			new_state = ParsingHeader;
 			break;
 		case '\n':
 			break;
 		case ']':
 		case '=':
-			final = Invalid;
+			new_state = Invalid;
 		default:
-			final = ParsingKey;
+			new_state = ParsingKey;
 			break;
 		}
 		break;
 	case ParsingHeader:
 		switch (input) {
 		case ']':
-			final = ParsedHeader;
+			new_state = ParsedHeader;
 			break;
 		case '[':
 		case '=':
 		case '\n':
-			final = Invalid;
+			new_state = Invalid;
 			break;
 		default:
 			break;
@@ -223,10 +222,10 @@ enum ParserState transition(enum ParserState initial, char input)
 		case '[':
 		case ']':
 		case '=':
-			final = Invalid;
+			new_state = Invalid;
 			break;
 		case '\n':
-			final = Intermediate;
+			new_state = Intermediate;
 			break;
 		default:
 			break;
@@ -237,10 +236,10 @@ enum ParserState transition(enum ParserState initial, char input)
 		case '[':
 		case ']':
 		case '\n':
-			final = Invalid;
+			new_state = Invalid;
 			break;
 		case '=':
-			final = ParsingValue;
+			new_state = ParsingValue;
 			break;
 		default:
 			break;
@@ -251,10 +250,10 @@ enum ParserState transition(enum ParserState initial, char input)
 		case '[':
 		case ']':
 		case '=':
-			final = Invalid;
+			new_state = Invalid;
 			break;
 		case '\n':
-			final = Intermediate;
+			new_state = Intermediate;
 			break;
 		default:
 			break;
@@ -263,5 +262,5 @@ enum ParserState transition(enum ParserState initial, char input)
 	default:
 		break;
 	}
-	return final;
+	return new_state;
 }
