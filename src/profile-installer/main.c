@@ -115,22 +115,154 @@ bool count_profiles(size_t *count, char* buf, size_t buf_size)
 }
 
 enum ParserState {
-	Sentinel,
-	ProfileHeader,
-	Key,
-	Value,
+	Initial,
+	Intermediate,
+	ParsingHeader,
+	ParsedHeader,
+	ParsingKey,
+	ParsingValue,
 	Invalid
 };
 
-void parse_profiles(
+enum ParserState transition(enum ParserState current, char input);
+
+bool parse_profiles(
 		struct profile *profiles, size_t profiles_size,
 		char* buf, size_t buf_size)
 {
-	enum ParserState state = Sentinel;
+	bool result = true;
+	enum ParserState state = Initial;
 	size_t cursor = 0,
 	       follow = 0;
-	// move cursor to next special char
-	// validate state
-	// consume chars
+
+	// the outer loop performs the state validation pass
+	for ( ; cursor < buf_size; ++cursor) {
+		state = transition(state, buf[cursor]);
+
+		// validate state
+		if (state == Invalid) {
+			// The file format is invalid; we cannot parse the file.
+			result = false;
+			break;
+		}
+
+		// consume chars
+		switch (state) {
+		case Initial:
+			break;
+		case Intermediate:
+			break;
+		case ParsingHeader:
+			break;
+		case ParsedHeader:
+			break;
+		case ParsingKey:
+			break;
+		case ParsingValue:
+			break;
+		case Invalid:
+			break;
+		default:
+			break;
+		}
+	}
+
+	return result;
+}
+
+// Determine the following state based on the initial state and the input
+enum ParserState transition(enum ParserState initial, char input)
+{
+	enum ParserState final = initial;
+	switch (initial) {
+	case Initial:
+		switch (input) {
+		case '[':
+			final = ParsingHeader;
+			break;
+		case '\n':
+			break;
+		case ']':
+		case '=':
+		default:
+			final = Invalid;
+			break;
+		}
+		break;
+	case Intermediate:
+		switch (input) {
+		case '[':
+			final = ParsingHeader;
+			break;
+		case '\n':
+			break;
+		case ']':
+		case '=':
+			final = Invalid;
+		default:
+			final = ParsingKey;
+			break;
+		}
+		break;
+	case ParsingHeader:
+		switch (input) {
+		case ']':
+			final = ParsedHeader;
+			break;
+		case '[':
+		case '=':
+		case '\n':
+			final = Invalid;
+			break;
+		default:
+			break;
+		}
+		break;
+	case ParsedHeader:
+		switch (input) {
+		case '[':
+		case ']':
+		case '=':
+			final = Invalid;
+			break;
+		case '\n':
+			final = Intermediate;
+			break;
+		default:
+			break;
+		}
+		break;
+	case ParsingKey:
+		switch (input) {
+		case '[':
+		case ']':
+		case '\n':
+			final = Invalid;
+			break;
+		case '=':
+			final = ParsingValue;
+			break;
+		default:
+			break;
+		}
+		break;
+	case ParsingValue:
+		switch (input) {
+		case '[':
+		case ']':
+		case '=':
+			final = Invalid;
+			break;
+		case '\n':
+			final = Intermediate;
+			break;
+		default:
+			break;
+		}
+		break;
+	default:
+		break;
+	}
+	return final;
 }
 

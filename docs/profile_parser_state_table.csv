@@ -1,0 +1,7 @@
+State,[,],=,\n,default
+Initial,ParsingHeader,Invalid,Invalid,self-loop,Invalid
+Intermediate,ParsingHeader,Invalid,Invalid,self-loop,ParsingKey
+ParsingHeader,Invalid,ParsedHeader,Invalid,Invalid,self-loop
+ParsedHeader,Invalid,Invalid,Invalid,Intermediate,self-loop
+ParsingKey,Invalid,Invalid,ParsingValue,Invalid,self-loop
+ParsingValue,Invalid,Invalid,Invalid,Intermediate,self-loop
