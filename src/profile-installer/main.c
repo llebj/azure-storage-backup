@@ -1,11 +1,9 @@
 #include <fcntl.h>
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -23,6 +21,9 @@ struct profile {
 };
 
 bool count_profiles(size_t *count, char* buf, size_t buf_size);
+bool parse_profiles(
+		struct profile *profiles, size_t profiles_size,
+		char* buf, size_t buf_size);
 
 int main(int argc, char** argv)
 {
@@ -64,14 +65,13 @@ int main(int argc, char** argv)
 		exit(EXIT_FAILURE);
 	}
 
-	// allocate profile buffer
 	struct profile *profiles;
 	if ((profiles = malloc(sizeof *profiles * profile_count)) == NULL) {
 		fprintf(stderr, "Failed to allocate profile buffer.\n");
 		exit(EXIT_FAILURE);
 	}
 
-	// parse profiles
+	parse_profiles(profiles, profile_count, fb, sb.st_size);
 }
 
 const char* profile_header = "Profile";
@@ -131,23 +131,24 @@ bool parse_profiles(
 		char* buf, size_t buf_size)
 {
 	bool result = true;
-	enum ParserState state = Initial;
+	enum ParserState current_state = Initial;
 	size_t cursor = 0,
 	       follow = 0;
 
 	// the outer loop performs the state validation pass
 	for ( ; cursor < buf_size; ++cursor) {
-		state = transition(state, buf[cursor]);
-
-		// validate state
-		if (state == Invalid) {
+		enum ParserState new_state = transition(current_state, buf[cursor]);
+		if (new_state == Invalid) {
 			// The file format is invalid; we cannot parse the file.
 			result = false;
 			break;
 		}
+		if (current_state == new_state) {
+			continue;
+		}
 
-		// consume chars
-		switch (state) {
+		// We only want to consume the chars when the status changes.
+		switch (current_state) {
 		case Initial:
 			break;
 		case Intermediate:
@@ -160,11 +161,10 @@ bool parse_profiles(
 			break;
 		case ParsingValue:
 			break;
-		case Invalid:
-			break;
 		default:
 			break;
 		}
+		current_state = new_state;
 	}
 
 	return result;
