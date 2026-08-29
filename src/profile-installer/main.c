@@ -114,13 +114,13 @@ bool count_profiles(size_t *count, char *buf, size_t buf_size)
 }
 
 enum ParserState {
-	Initial,
-	Intermediate,
-	ParsingHeader,
-	ParsedHeader,
-	ParsingKey,
-	ParsingValue,
-	Invalid
+	Initial = 1,
+	Intermediate = 2,
+	ParsingHeader = 4,
+	ParsedHeader = 8,
+	ParsingKey = 16,
+	ParsingValue = 32,
+	Invalid = 64
 };
 
 enum ParserState transition(enum ParserState current, char input);
@@ -134,6 +134,8 @@ bool parse_profiles(
 	size_t cursor = 0,
 	       follow = 0;
 
+	// TODO: Handle iterating through the profiles.
+
 	// the outer loop performs the state validation pass
 	for ( ; cursor < buf_size; ++cursor) {
 		enum ParserState new_state = transition(current_state, buf[cursor]);
@@ -146,21 +148,80 @@ bool parse_profiles(
 			continue;
 		}
 
-		// We only want to consume the chars when the status changes.
-		switch (current_state) {
-		case Initial:
+		uint8_t transition = current_state | new_state;
+		// The action to take can be determined purely on the transition.
+		// Each case represents a trasition arranged as `current_state | new_state`.
+		switch (transition) {
+		case Initial | ParsingHeader:
+			// Skip contents
+			// TODO: Implement
+			follow = cursor;
 			break;
-		case Intermediate:
+		case Intermediate | ParsingHeader:
 			break;
-		case ParsingHeader:
+		case Intermediate | ParsingKey:
 			break;
-		case ParsedHeader:
+		case ParsingHeader | ParsedHeader:
+		{
+			// Try to establish the span containing the header label
+			size_t start = follow;
+			for ( ; follow < cursor; ++follow) {
+				if (buf[follow] == ':') {
+					break;
+				}
+				continue;
+			}
+
+			// Validate the header label to ensure that it is a profile
+			bool no_colon = follow == cursor;
+			bool incorrect_length = (follow - start - 1) != strlen(profile_header);
+			bool incorrect_content = strncmp(
+						&buf[start + 1],
+						profile_header,
+						strlen(profile_header)) != 0;
+			if (no_colon || incorrect_length || incorrect_content) {
+				result = false;
+				break;
+			}
+
+			// Validate that the profile name has positive length before
+			// allocating any memory.
+			// The `no_colon` check above guarantees that `cursor > follow`
+			// meaning that there is no risk of integer underflow on `size_t`
+			if (cursor - follow - 1 <= 0) {
+				result = false;
+				break;
+			}
+
+			// Move follow off of ':' and start reading the name
+			++follow;
+			char *name_buf;
+			if ((name_buf = malloc(sizeof *name_buf * (cursor - follow + 1))) == NULL) {
+				fprintf(stderr, "Failed to allocate buffer for profile name.\n");
+				result = false;
+				break;
+			}
+
+			// TODO: Trim surrounding whitespace
+			size_t i = 0;
+			for ( ; follow < cursor; ++follow, ++i) {
+				name_buf[i] = buf[follow];
+			}
+			name_buf[i] = '\0';
+
+			profiles->name = name_buf;
 			break;
-		case ParsingKey:
+		}
+		case ParsedHeader | Intermediate:
 			break;
-		case ParsingValue:
+		case ParsingKey | ParsingValue:
+			// extract key
+			break;
+		case ParsingValue | Intermediate:
+			// extract value
 			break;
 		default:
+			// Every other transition results in `Invalid`.
 			break;
 		}
 		current_state = new_state;
