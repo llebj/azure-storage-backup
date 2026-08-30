@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -123,7 +124,13 @@ enum ParserState {
 	Invalid = 64
 };
 
+struct slice {
+	char* start;
+	size_t length;
+};
+
 enum ParserState transition(enum ParserState current, char input);
+struct slice trim(struct slice string);
 
 bool parse_profiles(
 		struct profile *profiles, size_t profiles_size,
@@ -151,6 +158,9 @@ bool parse_profiles(
 		uint8_t transition = current_state | new_state;
 		// The action to take can be determined purely on the transition.
 		// Each case represents a trasition arranged as `current_state | new_state`.
+		// WARN: OR'd states works in this case because there are no bi-directional
+		//       edges in the state-transition graph. If that property ever changes
+		//       then this will have to be revisited.
 		switch (transition) {
 		case Initial | ParsingHeader:
 			// Skip contents
@@ -184,32 +194,40 @@ bool parse_profiles(
 				break;
 			}
 
+			// Move follow off of ':' and start reading the name
+			++follow;
 			// Validate that the profile name has positive length before
 			// allocating any memory.
-			// The `no_colon` check above guarantees that `cursor > follow`
-			// meaning that there is no risk of integer underflow on `size_t`
-			if (cursor - follow - 1 <= 0) {
+			if (follow >= cursor) {
 				result = false;
 				break;
 			}
 
-			// Move follow off of ':' and start reading the name
-			++follow;
+			struct slice name = {
+				.start = &buf[follow],
+				.length = cursor - follow
+			};
+			name = trim(name);
+			if (name.length == 0) {
+				result = false;
+				break;
+			}
+
 			char *name_buf;
-			if ((name_buf = malloc(sizeof *name_buf * (cursor - follow + 1))) == NULL) {
+			if ((name_buf = malloc(sizeof *name_buf * (name.length + 1))) == NULL) {
 				fprintf(stderr, "Failed to allocate buffer for profile name.\n");
 				result = false;
 				break;
 			}
 
-			// TODO: Trim surrounding whitespace
 			size_t i = 0;
-			for ( ; follow < cursor; ++follow, ++i) {
-				name_buf[i] = buf[follow];
+			for ( ; i < name.length; ++i) {
+				name_buf[i] = name.start[i];
 			}
 			name_buf[i] = '\0';
 
 			profiles->name = name_buf;
+			follow = cursor;
 			break;
 		}
 		case ParsedHeader | Intermediate:
@@ -324,4 +342,38 @@ enum ParserState transition(enum ParserState current_state, char input)
 		break;
 	}
 	return new_state;
+}
+
+struct slice trim(struct slice string)
+{
+	struct slice result = {
+		.start = NULL,
+		.length = 0
+	};
+	if (string.length == 0) {
+		return result;
+	}
+
+	size_t i = 0,
+	       j = string.length - 1;
+	for (; i <= j; ) {
+		// We exhaustively trim from the start first instead of trimming
+		// from the start and end concurrently to prevent underflow of `j`.
+		if (isspace(string.start[i])) {
+			++i;
+		}
+		else if (isspace(string.start[j])) {
+			--j;
+		}
+		else {
+			// Neither `i`, nor `j` were moved, therefore we have
+			// finished trimming.
+			break;
+		}
+	}
+	if (i <= j) {
+		result.start = &string.start[i];
+		result.length = j - i + 1;
+	}
+	return result;
 }
