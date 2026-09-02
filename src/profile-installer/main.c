@@ -136,7 +136,6 @@ bool parse_profiles(
 		struct profile *profiles, size_t profiles_size,
 		char *buf, size_t buf_size)
 {
-	bool result = true;
 	enum ParserState current_state = Initial;
 	size_t cursor = 0,
 	       follow = 0;
@@ -147,10 +146,10 @@ bool parse_profiles(
 	for ( ; cursor < buf_size; ++cursor) {
 		enum ParserState new_state = transition(current_state, buf[cursor]);
 		if (new_state == Invalid) {
-			// The file format is invalid; we cannot parse the file.
-			result = false;
+			current_state = Invalid;
 			break;
 		}
+
 		if (current_state == new_state) {
 			continue;
 		}
@@ -173,6 +172,8 @@ bool parse_profiles(
 			break;
 		case ParsingHeader | ParsedHeader:
 		{
+			// Move follow off of '[' and start reading the name
+			++follow;
 			// Try to establish the span containing the header label
 			size_t start = follow;
 			for ( ; follow < cursor; ++follow) {
@@ -184,13 +185,13 @@ bool parse_profiles(
 
 			// Validate the header label to ensure that it is a profile
 			bool no_colon = follow == cursor;
-			bool incorrect_length = (follow - start - 1) != strlen(profile_header);
+			bool incorrect_length = (follow - start) != strlen(profile_header);
 			bool incorrect_content = strncmp(
-						&buf[start + 1],
+						&buf[start],
 						profile_header,
 						strlen(profile_header)) != 0;
 			if (no_colon || incorrect_length || incorrect_content) {
-				result = false;
+				current_state = Invalid;
 				break;
 			}
 
@@ -199,7 +200,7 @@ bool parse_profiles(
 			// Validate that the profile name has positive length before
 			// allocating any memory.
 			if (follow >= cursor) {
-				result = false;
+				current_state = Invalid;
 				break;
 			}
 
@@ -209,14 +210,14 @@ bool parse_profiles(
 			};
 			name = trim(name);
 			if (name.length == 0) {
-				result = false;
+				current_state = Invalid;
 				break;
 			}
 
 			char *name_buf;
 			if ((name_buf = malloc(sizeof *name_buf * (name.length + 1))) == NULL) {
 				fprintf(stderr, "Failed to allocate buffer for profile name.\n");
-				result = false;
+				current_state = Invalid;
 				break;
 			}
 
@@ -231,7 +232,19 @@ bool parse_profiles(
 			break;
 		}
 		case ParsedHeader | Intermediate:
+		{
+			// Move follow off of ']'
+			++follow;
+			struct slice name = {
+				.start = &buf[follow],
+				.length = cursor - follow
+			};
+			name = trim(name);
+			if (name.length != 0) {
+				current_state = Invalid;
+			}
 			break;
+		}
 		case ParsingKey | ParsingValue:
 			// extract key
 			break;
@@ -242,10 +255,17 @@ bool parse_profiles(
 			// Every other transition results in `Invalid`.
 			break;
 		}
+
+		if (current_state == Invalid) {
+			break;
+		}
+
 		current_state = new_state;
+
 	}
 
-	return result;
+	// TODO: Replace with IS_VALID() macro
+	return current_state != Invalid;
 }
 
 // Determine the new state based on the current state and the input
