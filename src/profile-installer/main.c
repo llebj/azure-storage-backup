@@ -124,6 +124,13 @@ enum ParserState {
 	Invalid = 64
 };
 
+enum CurrentFileKey {
+	None,
+	Source,
+	Destination,
+	Type
+};
+
 struct slice {
 	char* start;
 	size_t length;
@@ -131,12 +138,14 @@ struct slice {
 
 enum ParserState transition(enum ParserState current, char input);
 struct slice trim(struct slice string);
+enum CurrentFileKey parse_key(struct slice string);
 
 bool parse_profiles(
 		struct profile *profiles, size_t profiles_size,
 		char *buf, size_t buf_size)
 {
 	enum ParserState current_state = Initial;
+	enum CurrentFileKey current_key = None;
 	size_t cursor = 0,
 	       follow = 0;
 
@@ -162,13 +171,13 @@ bool parse_profiles(
 		//       then this will have to be revisited.
 		switch (transition) {
 		case Initial | ParsingHeader:
-			// Skip contents
 			// TODO: Implement
 			follow = cursor;
 			break;
 		case Intermediate | ParsingHeader:
 			break;
 		case Intermediate | ParsingKey:
+			follow = cursor;
 			break;
 		case ParsingHeader | ParsedHeader:
 		{
@@ -246,13 +255,21 @@ bool parse_profiles(
 			break;
 		}
 		case ParsingKey | ParsingValue:
-			// extract key
+		{
+			struct slice token = {
+				.start = &buf[follow],
+				.length = cursor - follow
+			};
+			current_key = parse_key(token);
+			if (current_key == None) {
+				current_state = Invalid;
+			}
 			break;
+		}
 		case ParsingValue | Intermediate:
 			// extract value
 			break;
 		default:
-			// Every other transition results in `Invalid`.
 			break;
 		}
 
@@ -297,6 +314,7 @@ enum ParserState transition(enum ParserState current_state, char input)
 		case ']':
 		case '=':
 			new_state = Invalid;
+			break;
 		default:
 			new_state = ParsingKey;
 			break;
@@ -395,5 +413,26 @@ struct slice trim(struct slice string)
 		result.start = &string.start[i];
 		result.length = j - i + 1;
 	}
+	return result;
+}
+
+enum CurrentFileKey parse_key(struct slice string)
+{
+	enum CurrentFileKey result = None;
+	struct slice key = trim(string);
+	if (key.length == 0) {
+		return result;
+	}
+
+	if (strncmp(key.start, "Source", key.length) == 0) {
+		result = Source;
+	}
+	else if (strncmp(key.start, "Destination", key.length) == 0) {
+		result = Destination;
+	}
+	else if (strncmp(key.start, "Type", key.length) == 0) {
+		result = Type;
+	}
+
 	return result;
 }
