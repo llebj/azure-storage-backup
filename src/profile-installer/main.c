@@ -226,6 +226,8 @@ bool parse_profiles(
 			char *name_buf;
 			if ((name_buf = malloc(sizeof *name_buf * (name.length + 1))) == NULL) {
 				fprintf(stderr, "Failed to allocate buffer for profile name.\n");
+				// The file isn't invalid.
+				// TODO: Handle this error properly
 				current_state = Invalid;
 				break;
 			}
@@ -264,11 +266,92 @@ bool parse_profiles(
 			if (current_key == None) {
 				current_state = Invalid;
 			}
+			follow = cursor;
 			break;
 		}
 		case ParsingValue | Intermediate:
-			// extract value
+		{
+			// Move follow off of '='
+			++follow;
+			struct slice token = {
+				.start = &buf[follow],
+				.length = cursor - follow
+			};
+			token = trim(token);
+			if (token.length == 0) {
+				current_state = Invalid;
+				break;
+			}
+
+			if (current_key == Type) {
+				uint8_t type = 0;
+				// `head` is exclusive when used to build the slice
+				// so we need to iterate up to the token length.
+				for (size_t head = 0, tail = 0; head <= token.length; ++head) {
+					// WARN: Check length before reading from token.
+					if (head < token.length && token.start[head] != ',') {
+						continue;
+					}
+
+					struct slice type_name = {
+						.start = token.start + tail,
+						.length = head - tail
+					};
+					if (type_name.length == 0) {
+						current_state = Invalid;
+						break;
+					}
+
+					if (strncmp(type_name.start, "preinstall", type_name.length) == 0) {
+						type |= PreInstall;
+					}
+					else if (strncmp(type_name.start, "postinstall", type_name.length) == 0) {
+						type |= PostInstall;
+					}
+					else if (strncmp(type_name.start, "timer", type_name.length) == 0) {
+						type |= Timer;
+					}
+					else {
+						current_state = Invalid;
+						break;
+					}
+
+					// `i` is currently pointing at ',' so move to the next char
+					tail = head + 1;
+				}
+
+				if (current_state == Invalid) {
+					break;
+				}
+				profiles->type = type;
+			}
+			else {
+				char *value_buf;
+				if ((value_buf = malloc(sizeof *value_buf * (token.length + 1))) == NULL) {
+					fprintf(stderr, "Failed to allocate buffer for profile value.\n");
+					// The file isn't invalid.
+					// TODO: Handle this error properly
+					current_state = Invalid;
+					break;
+				}
+
+				size_t i = 0;
+				for ( ; i < token.length; ++i) {
+					value_buf[i] = token.start[i];
+				}
+				value_buf[i] = '\0';
+
+				if (current_key == Source) {
+					profiles->source = value_buf;
+				}
+				else if (current_key == Destination) {
+					profiles->destination = value_buf;
+				}
+			}
+
+			follow = cursor;
 			break;
+		}
 		default:
 			break;
 		}
@@ -278,7 +361,6 @@ bool parse_profiles(
 		}
 
 		current_state = new_state;
-
 	}
 
 	// TODO: Replace with IS_VALID() macro
