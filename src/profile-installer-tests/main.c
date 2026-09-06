@@ -13,18 +13,17 @@ void tearDown(void)
 {
 }
 
-void test_test()
-{
-	size_t count = 0;
-	bool result = count_profiles(&count, NULL, 0);
-	TEST_ASSERT_TRUE(result);
-}
+// -------------
+// -- parsing --
+// -------------
+
+// test_when_the_file_is_valid_then_return_parsed_profiles
+
+// test_when_the_file_is_not_valid_then_return_an_error
 
 int main(void)
 {
 	UNITY_BEGIN();
-
-	RUN_TEST(test_test);
 
 	return UNITY_END();
 }

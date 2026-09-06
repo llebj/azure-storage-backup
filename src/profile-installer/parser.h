@@ -39,9 +39,9 @@ struct profile {
 
 
 bool count_profiles(size_t *count, char *buf, size_t buf_size);
-bool parse_profiles(
-		struct profile *profiles, size_t profiles_size,
-		char* buf, size_t buf_size);
+struct profile* parse_profiles(
+		size_t *profiles_size,
+		char *buf, size_t buf_size);
 enum ParserState transition(enum ParserState current, char input);
 
 #endif

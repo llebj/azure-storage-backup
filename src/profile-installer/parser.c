@@ -13,51 +13,22 @@ const char* profile_header = "Profile";
 struct slice trim(struct slice string);
 enum CurrentFileKey parse_key(struct slice string);
 
-bool count_profiles(size_t *count, char *buf, size_t buf_size)
-{
-	bool success = true;
-	*count = 0;
-	for (size_t cursor = 0; cursor < buf_size; ++cursor) {
-		// Iterate until we find a section definition.
-		if (buf[cursor] != '[') {
-			continue;
-		}
-
-		size_t follow = cursor;
-		// We have found a section definition, so now iterate until
-		// we find the end of the definition header.
-		for ( ; cursor < buf_size; ++cursor) {
-			if (buf[cursor] != ']') {
-				continue;
-			}
-			break;
-		}
-		if (cursor == buf_size) {
-			// The file is invalid as there is no matching closing
-			// bracket.
-			success = false;
-			break;
-		}
-
-		// At this point `follow` is pointing to '[' and `cursor` is
-		// pointing to ']'. We start the comparison from the first character
-		// following the `[`.
-		if (strncmp(&buf[follow + 1], profile_header, strlen(profile_header)) == 0) {
-			++*count;
-		}
-	}
-	
-	return success;
-}
-
-bool parse_profiles(
-		struct profile *profiles, size_t profiles_size,
+struct profile* parse_profiles(
+		size_t *profiles_size,
 		char *buf, size_t buf_size)
 {
+	struct profile *profiles = NULL;
 	enum ParserState current_state = Initial;
 	enum CurrentFileKey current_key = None;
 	size_t cursor = 0,
 	       follow = 0;
+
+	// TODO: Handle re-allocating profiles if needed
+	if ((profiles = malloc(sizeof *profiles * 5)) == NULL) {
+		fprintf(stderr, "Failed to allocate buffer for profiles.\n");
+		*profiles_size = 0;
+		return profiles;
+	}
 
 	// TODO: Handle iterating through the profiles.
 
@@ -274,7 +245,7 @@ bool parse_profiles(
 	}
 
 	// TODO: Replace with IS_VALID() macro
-	return current_state != Invalid;
+	return current_state != Invalid ? profiles : NULL;
 }
 
 // Determine the new state based on the current state and the input

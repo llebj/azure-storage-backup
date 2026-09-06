@@ -1,5 +1,6 @@
 #include <fcntl.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,17 +45,6 @@ int main(int argc, char **argv)
 	}
 
 	size_t profile_count = 0;
-	if (!count_profiles(&profile_count, fb, sb.st_size)) {
-		fprintf(stderr, "Profile configuration file is invalid.\n");
-		exit(EXIT_FAILURE);
-	}
-
-	struct profile *profiles;
-	if ((profiles = malloc(sizeof *profiles * profile_count)) == NULL) {
-		fprintf(stderr, "Failed to allocate profile buffer.\n");
-		exit(EXIT_FAILURE);
-	}
-
-	parse_profiles(profiles, profile_count, fb, sb.st_size);
+	struct profile *profiles = parse_profiles(&profile_count, fb, sb.st_size);
 }
 
