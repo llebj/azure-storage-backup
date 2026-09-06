@@ -8,6 +8,8 @@
 
 #include "parser.h"
 
+#define PROFILES_SIZE	5
+
 const char* profile_header = "Profile";
 
 struct slice trim(struct slice string);
@@ -18,13 +20,15 @@ struct profile* parse_profiles(
 		char *buf, size_t buf_size)
 {
 	struct profile *profiles = NULL;
+	uint64_t current_profile = 0;
+
 	enum ParserState current_state = Initial;
 	enum CurrentFileKey current_key = None;
 	size_t cursor = 0,
 	       follow = 0;
 
 	// TODO: Handle re-allocating profiles if needed
-	if ((profiles = malloc(sizeof *profiles * 5)) == NULL) {
+	if ((profiles = malloc(sizeof *profiles * PROFILES_SIZE)) == NULL) {
 		fprintf(stderr, "Failed to allocate buffer for profiles.\n");
 		*profiles_size = 0;
 		return profiles;
@@ -242,10 +246,28 @@ struct profile* parse_profiles(
 		}
 
 		current_state = new_state;
+		if (profiles[current_profile].name != NULL
+		    && profiles[current_profile].destination != NULL
+		    && profiles[current_profile].source != NULL
+		    && profiles[current_profile].type != 0) {
+			// All of the require fields have been set.
+			// Probably need a better way of determining when we have
+			// finished parsing a single profile.
+			++current_profile;
+		}
+		if (current_profile >= PROFILES_SIZE) {
+			// TODO: Implement re-allocation of profiles buffer.
+			fprintf(stderr, "Overran profiles buffer.\n");
+			exit(EXIT_FAILURE);
+		}
 	}
 
-	// TODO: Replace with IS_VALID() macro
-	return current_state != Invalid ? profiles : NULL;
+	if (current_state == Invalid) {
+		profiles_size = 0;
+		return NULL;
+	}
+	*profiles_size = current_profile;
+	return profiles;
 }
 
 // Determine the new state based on the current state and the input
