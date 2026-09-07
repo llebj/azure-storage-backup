@@ -56,12 +56,9 @@ struct profile* parse_profiles(
 		//       then this will have to be revisited.
 		switch (transition) {
 		case Initial | ParsingHeader:
-			// TODO: Implement
-			follow = cursor;
-			break;
 		case Intermediate | ParsingHeader:
-			break;
 		case Intermediate | ParsingKey:
+			// Do we need to do some validation here?
 			follow = cursor;
 			break;
 		case ParsingHeader | ParsedHeader:
@@ -123,7 +120,7 @@ struct profile* parse_profiles(
 			}
 			name_buf[i] = '\0';
 
-			profiles->name = name_buf;
+			profiles[current_profile].name = name_buf;
 			follow = cursor;
 			break;
 		}
@@ -208,7 +205,7 @@ struct profile* parse_profiles(
 				if (current_state == Invalid) {
 					break;
 				}
-				profiles->type = type;
+				profiles[current_profile].type = type;
 			}
 			else {
 				char *value_buf;
@@ -227,10 +224,10 @@ struct profile* parse_profiles(
 				value_buf[i] = '\0';
 
 				if (current_key == Source) {
-					profiles->source = value_buf;
+					profiles[current_profile].source = value_buf;
 				}
 				else if (current_key == Destination) {
-					profiles->destination = value_buf;
+					profiles[current_profile].destination = value_buf;
 				}
 			}
 
