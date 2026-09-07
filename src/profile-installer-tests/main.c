@@ -14,6 +14,12 @@ void tearDown(void)
 {
 }
 
+// ----------------
+// -- transition --
+// ----------------
+
+// TODO
+
 // -------------
 // -- parsing --
 // -------------
@@ -69,12 +75,86 @@ void test_when_the_file_is_not_valid_then_return_empty(void)
 	TEST_ASSERT_EQUAL_size_t(0, input_size);
 }
 
+void test_do_not_allow_invalid_header_label(void)
+{
+	// Arrange
+	char* input =	"[Prof:root]\n"
+			"Source = /\n"
+			"Destination = /.snapshots\n"
+			"Type = timer\n";
+	size_t input_size = 0;
+
+	// Act
+	struct profile *profiles = parse_profiles(&input_size, input, strlen(input));
+
+	// Assert
+	TEST_ASSERT_NULL(profiles);
+	TEST_ASSERT_EQUAL_size_t(0, input_size);
+}
+
+void test_do_not_allow_empty_name(void)
+{
+	// Arrange
+	char* input =	"[Profile:]\n"
+			"Source = /\n"
+			"Destination = /.snapshots\n"
+			"Type = timer\n";
+	size_t input_size = 0;
+
+	// Act
+	struct profile *profiles = parse_profiles(&input_size, input, strlen(input));
+
+	// Assert
+	TEST_ASSERT_NULL(profiles);
+	TEST_ASSERT_EQUAL_size_t(0, input_size);
+}
+
+void test_do_not_allow_empty_key(void)
+{
+	// Arrange
+	char* input =	"[Profile:root]\n"
+			" = /\n"
+			"Destination = /.snapshots\n"
+			"Type = timer\n";
+	size_t input_size = 0;
+
+	// Act
+	struct profile *profiles = parse_profiles(&input_size, input, strlen(input));
+
+	// Assert
+	TEST_ASSERT_NULL(profiles);
+	TEST_ASSERT_EQUAL_size_t(0, input_size);
+}
+
+void test_do_not_allow_empty_value(void)
+{
+	// Arrange
+	char* input =	"[Profile:root]\n"
+			"Source = \n"
+			"Destination = /.snapshots\n"
+			"Type = timer\n";
+	size_t input_size = 0;
+
+	// Act
+	struct profile *profiles = parse_profiles(&input_size, input, strlen(input));
+
+	// Assert
+	TEST_ASSERT_NULL(profiles);
+	TEST_ASSERT_EQUAL_size_t(0, input_size);
+}
+
+// cannot_redefine_key
+
 int main(void)
 {
 	UNITY_BEGIN();
 
 	RUN_TEST(test_when_the_file_is_valid_then_return_parsed_profiles);
 	RUN_TEST(test_when_the_file_is_not_valid_then_return_empty);
+	RUN_TEST(test_do_not_allow_invalid_header_label);
+	RUN_TEST(test_do_not_allow_empty_name);
+	RUN_TEST(test_do_not_allow_empty_key);
+	RUN_TEST(test_do_not_allow_empty_value);
 
 	return UNITY_END();
 }
