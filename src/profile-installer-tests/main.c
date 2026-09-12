@@ -143,7 +143,7 @@ void test_do_not_allow_empty_value(void)
 	TEST_ASSERT_EQUAL_size_t(0, input_size);
 }
 
-// cannot_redefine_key
+// TODO: cannot_redefine_key
 
 int main(void)
 {
