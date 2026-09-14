@@ -15,11 +15,11 @@ const char* profile_header = "Profile";
 struct slice trim(struct slice string);
 enum CurrentFileKey parse_key(struct slice string);
 
-struct profile* parse_profiles(
+struct parser_profile* parse_profiles(
 		size_t *profiles_size,
 		char *buf, size_t buf_size)
 {
-	struct profile *profiles = NULL;
+	struct parser_profile *profiles = NULL;
 	uint64_t current_profile = 0;
 
 	enum ParserState current_state = Initial;

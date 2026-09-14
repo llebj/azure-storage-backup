@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum ProfileType {
+enum TriggerType {
 	Timer = 1,
 	PreInstall = 2,
 	PostInstall = 4
@@ -30,7 +30,7 @@ struct slice {
 	char* start;
 	size_t length;
 };
-struct profile {
+struct parser_profile {
 	char* name;
 	char* source;
 	char* destination;
@@ -39,7 +39,7 @@ struct profile {
 
 
 bool count_profiles(size_t *count, char *buf, size_t buf_size);
-struct profile* parse_profiles(
+struct parser_profile* parse_profiles(
 		size_t *profiles_size,
 		char *buf, size_t buf_size);
 enum ParserState transition(enum ParserState current, char input);

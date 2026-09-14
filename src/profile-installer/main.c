@@ -1,4 +1,3 @@
-#include <cstdint>
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -62,7 +61,7 @@ int main(int argc, char **argv)
 	}
 
 	size_t profile_count = 0;
-	struct profile *profiles = parse_profiles(&profile_count, fb, sb.st_size);
+	struct parser_profile *profiles = parse_profiles(&profile_count, fb, sb.st_size);
 	if (profiles == NULL) {
 		fprintf(stderr, "Failed to parse profiles.\n");
 		exit(EXIT_FAILURE);
