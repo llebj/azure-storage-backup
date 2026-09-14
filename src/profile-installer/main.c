@@ -72,17 +72,29 @@ int main(int argc, char **argv)
 		exit(EXIT_SUCCESS);
 	}
 
-	// commit profiles
-	//	how do we uniquely identify a profile?
-	//		using the fingerprint (hash of machine_id and source)
-	//	what happens if a profile changes?
-	//		changing the following fields causes a version bump:
-	//			- name
-	//			- destination
-	//			- trigger_type
-	//		bumped versions are inserted as new records
-	//		previous versions get marked as 'retired'
-	//	what happens if a profile is deleted?
-	//		it gets marked as 'retired'
+	// how do we uniquely identify a profile?
+	//	 using the fingerprint (hash of machine_id and source)
+	// what happens if a profile changes?
+	//	changing the following fields causes a version bump:
+	//		- name
+	//		- destination
+	//		- trigger_type
+	// bumped versions are inserted as new records
+	//	previous versions get marked as 'retired'
+	// what happens if a profile is deleted?
+	//	it gets marked as 'retired'
+
+	// compute fingerprints for all new profiles
+	// sort by fingerprints
+	// retrieve all existing profiles sorted by fingerprint
+	//
+	// merge across profiles
+	//	if DB key < parsed key
+	//		deleted from DB
+	//	else if DB key > parsed key
+	//		insert new profile
+	//	else
+	//		insert new version of existing profile
+
 }
 
