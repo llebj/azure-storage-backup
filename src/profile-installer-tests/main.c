@@ -1,10 +1,12 @@
 #include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 
 #include "vendor/unity.h"
 #include "vendor/unity_internals.h"
 
 #include "../profile-installer/parser.h"
+#include "../profile-installer/lib.h"
 
 void setUp(void)
 {
@@ -40,7 +42,7 @@ void test_when_the_file_is_valid_then_return_parsed_profiles(void)
 	size_t input_size = 0;
 
 	// Act
-	struct profile *profiles = parse_profiles(&input_size, input, strlen(input));
+	struct parser_profile *profiles = parse_profiles(&input_size, input, strlen(input));
 
 	// Assert
 	TEST_ASSERT_NOT_NULL(profiles);
@@ -68,7 +70,7 @@ void test_when_the_file_is_not_valid_then_return_empty(void)
 	size_t input_size = 0;
 
 	// Act
-	struct profile *profiles = parse_profiles(&input_size, input, strlen(input));
+	struct parser_profile *profiles = parse_profiles(&input_size, input, strlen(input));
 
 	// Assert
 	TEST_ASSERT_NULL(profiles);
@@ -85,7 +87,7 @@ void test_do_not_allow_invalid_header_label(void)
 	size_t input_size = 0;
 
 	// Act
-	struct profile *profiles = parse_profiles(&input_size, input, strlen(input));
+	struct parser_profile *profiles = parse_profiles(&input_size, input, strlen(input));
 
 	// Assert
 	TEST_ASSERT_NULL(profiles);
@@ -102,7 +104,7 @@ void test_do_not_allow_empty_name(void)
 	size_t input_size = 0;
 
 	// Act
-	struct profile *profiles = parse_profiles(&input_size, input, strlen(input));
+	struct parser_profile *profiles = parse_profiles(&input_size, input, strlen(input));
 
 	// Assert
 	TEST_ASSERT_NULL(profiles);
@@ -119,7 +121,7 @@ void test_do_not_allow_empty_key(void)
 	size_t input_size = 0;
 
 	// Act
-	struct profile *profiles = parse_profiles(&input_size, input, strlen(input));
+	struct parser_profile *profiles = parse_profiles(&input_size, input, strlen(input));
 
 	// Assert
 	TEST_ASSERT_NULL(profiles);
@@ -136,7 +138,7 @@ void test_do_not_allow_empty_value(void)
 	size_t input_size = 0;
 
 	// Act
-	struct profile *profiles = parse_profiles(&input_size, input, strlen(input));
+	struct parser_profile *profiles = parse_profiles(&input_size, input, strlen(input));
 
 	// Assert
 	TEST_ASSERT_NULL(profiles);
@@ -144,6 +146,22 @@ void test_do_not_allow_empty_value(void)
 }
 
 // TODO: cannot_redefine_key
+
+// -------------
+// -- Hashing --
+// -------------
+
+void test_it_correctly_hashes_a_basic_string(void)
+{
+	char *input = "hello";
+	uint64_t output = poly_hash(input);
+
+	TEST_ASSERT_EQUAL_UINT64(90986922, output);
+}
+
+// ----------
+// -- Main --
+// ----------
 
 int main(void)
 {
@@ -155,6 +173,8 @@ int main(void)
 	RUN_TEST(test_do_not_allow_empty_name);
 	RUN_TEST(test_do_not_allow_empty_key);
 	RUN_TEST(test_do_not_allow_empty_value);
+
+	RUN_TEST(test_it_correctly_hashes_a_basic_string);
 
 	return UNITY_END();
 }
