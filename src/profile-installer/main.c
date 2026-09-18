@@ -117,25 +117,62 @@ struct profile * map_profiles(struct parser_profile *parser_profiles, size_t cou
 		fprintf(stderr, "Failed to generate machine ID.\n");
 		return NULL;
 	}
+	// TODO: Can this contain an embedded NUL?
 	char * machine_id = SD_ID128_TO_STRING(raw_machine_id);
 
-	char * hash_source = NULL;
+	char * hash_buf = NULL;
 	// `SD_ID128_STRING_MAX` already includes for NUL terminator.
 	size_t buf_len = max_source + SD_ID128_STRING_MAX;
-	if ((hash_source = malloc(sizeof *hash_source * buf_len)) == NULL) {
+	if ((hash_buf = malloc(sizeof *hash_buf * buf_len)) == NULL) {
 		fprintf(stderr, "Failed to allocate hash source buffer.\n");
 		return NULL;
 	}
+	// The machine ID forms part of the hash for every profile fingerprint.
+	memcpy(hash_buf, machine_id, SD_ID128_STRING_MAX);
 
-	for (size_t i = 0; i < SD_ID128_STRING_MAX; ++i) {
-		hash_source[i] = machine_id[i];
-	}
 	for (size_t current = 0; current < count; ++current) {
 		struct parser_profile current_profile = parser_profiles[current];
-		size_t h_source_length = SD_ID128_STRING_MAX + strlen(current_profile.source);
-		for (size_t i = SD_ID128_STRING_MAX - 1, j = 0; i < h_source_length; ++i, ++j) {
-			hash_source[i] = current_profile.source[j];
+		int src_len = strlen(current_profile.source);
+
+		size_t hash_source_len = SD_ID128_STRING_MAX + src_len;
+		for (size_t i = SD_ID128_STRING_MAX - 1, j = 0; i < hash_source_len; ++i, ++j) {
+			hash_buf[i] = current_profile.source[j];
 		}
-		uint64_t hash = poly_hash(hash_source);
+		uint64_t hash = poly_hash(hash_buf);
+
+		char *name_buf = NULL;
+		// +1 need to account for the NUL terminator.
+		size_t name_buf_len = sizeof *name_buf * strlen(current_profile.name) + 1;
+		if ((name_buf = malloc(name_buf_len)) == NULL) {
+			fprintf(stderr, "Failed to allocate profile name buffer.\n");
+			exit(EXIT_FAILURE);
+		}
+		memcpy(name_buf, current_profile.name, name_buf_len);
+
+		char *src_buf = NULL;
+		size_t src_buf_len = sizeof *src_buf * src_len + 1;
+		if ((src_buf = malloc(src_buf_len)) == NULL) {
+			fprintf(stderr, "Failed to allocate profile source buffer.\n");
+			exit(EXIT_FAILURE);
+		}
+		memcpy(src_buf, current_profile.source, src_buf_len);
+
+		char *dst_buf = NULL;
+		size_t dst_buf_len = sizeof *dst_buf * strlen(current_profile.destination) + 1;
+		if ((dst_buf = malloc(dst_buf_len)) == NULL) {
+			fprintf(stderr, "Failed to allocate profile source buffer.\n");
+			exit(EXIT_FAILURE);
+		}
+		memcpy(dst_buf, current_profile.source, dst_buf_len);
+
+		profiles[current].fingerprint = hash;
+		profiles[current].name = name_buf;
+		profiles[current].source = src_buf;
+		profiles[current].destination = dst_buf;
+		profiles[current].trigger_type = current_profile.type;
 	}
+
+	free(hash_buf);
+
+	return profiles;
 }

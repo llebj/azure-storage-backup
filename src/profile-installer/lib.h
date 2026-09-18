@@ -12,9 +12,9 @@ struct profile {
 	uint32_t id;
 	uint64_t fingerprint;
 	uint32_t version;
-	unsigned char *name;
-	unsigned char *source;
-	unsigned char *destination;
+	char *name;
+	char *source;
+	char *destination;
 	uint8_t trigger_type;
 	enum ProfileStatus status;
 };
