@@ -16,6 +16,7 @@
 #define APP_ID	SD_ID128_MAKE(e1,dc,79,91,d6,3a,45,36,09,0d,04,2a,c8,2a,50,91)
 
 struct profile * map_profiles(struct parser_profile *parser_profiles, size_t count);
+int compare_profiles(const void *pa, const void *pb);
 
 int main(int argc, char **argv)
 {
@@ -77,11 +78,15 @@ int main(int argc, char **argv)
 
 
 	// compute fingerprints for all new profiles
-	map_profiles(parser_profiles, parser_profile_count);
-
+	struct profile *new_profiles = map_profiles(parser_profiles, parser_profile_count);
+	if (new_profiles == NULL) {
+		fprintf(stderr, "Failed to map profiles.\n");
+		exit(EXIT_SUCCESS);
+	}
 	// sort by fingerprints
+	qsort(&new_profiles, parser_profile_count, sizeof *new_profiles, &compare_profiles);
+
 	// retrieve all existing profiles sorted by fingerprint
-	//
 	// merge across profiles
 	//	if DB key < parsed key
 	//		deleted from DB
@@ -89,6 +94,13 @@ int main(int argc, char **argv)
 	//		insert new profile
 	//	else
 	//		insert new version of existing profile
+}
+
+int compare_profiles(const void *pa, const void *pb) {
+	const struct profile *a = pa;
+	const struct profile *b = pb;
+
+	return (a->fingerprint > b->fingerprint) - (a->fingerprint < b->fingerprint);
 }
 
 struct profile * map_profiles(struct parser_profile *parser_profiles, size_t count)
