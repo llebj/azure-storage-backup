@@ -3,27 +3,49 @@ CC := clang
 CFLAGS := -O0 -g
 
 BUILD_DIR := build
-OUT := parser-suite.out
-OBJS := $(addprefix $(BUILD_DIR)/, unity.o parser.o lib.o parser-suite.o)
-TARGET := $(addprefix $(BUILD_DIR)/, $(OUT))
+UNITY_HEADERS := vendor/unity.h vendor/unity_internals.h
 
-.PHONY: all clean test
+.PHONY: all test clean
 
-all: $(TARGET)
+all: $(BUILD_DIR)/parser-suite.out $(BUILD_DIR)/db-interface-suite.out $(BUILD_DIR)/lib-suite.out
 
-$(TARGET): $(OBJS) | $(BUILD_DIR)
-	$(CC) -o $(TARGET) $(OBJS)
-
-$(BUILD_DIR)/unity.o: vendor/unity.c vendor/unity.h vendor/unity_internals.h | $(BUILD_DIR)
+# --- shared by all test suites ---
+$(BUILD_DIR)/unity.o: vendor/unity.c $(UNITY_HEADERS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c vendor/unity.c -o $(BUILD_DIR)/unity.o
 
-$(BUILD_DIR)/parser-suite.o: parser-suite.c vendor/unity.h vendor/unity_internals.h ../src/parser.h | $(BUILD_DIR)
+
+# --- parser suite ---
+PARSER_OBJS := $(addprefix $(BUILD_DIR)/, parser-suite.o parser.o unity.o)
+
+$(BUILD_DIR)/parser-suite.out:  $(PARSER_OBJS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $(BUILD_DIR)/parser-suite.out $(PARSER_OBJS)
+$(BUILD_DIR)/parser-suite.o: parser-suite.c ../src/parser.h $(UNITY_HEADERS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c parser-suite.c -o $(BUILD_DIR)/parser-suite.o
 $(BUILD_DIR)/parser.o: ../src/parser.c ../src/parser.h | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c ../src/parser.c -o $(BUILD_DIR)/parser.o
+
+
+## --- db interface suite ---
+DB_INTERFACE_OBJS := $(addprefix $(BUILD_DIR)/, db-interface-suite.o unity.o)
+
+$(BUILD_DIR)/db-interface-suite.out:  $(DB_INTERFACE_OBJS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $(BUILD_DIR)/db-interface-suite.out $(DB_INTERFACE_OBJS)
+$(BUILD_DIR)/db-interface-suite.o: db-interface-suite.c $(UNITY_HEADERS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c db-interface-suite.c -o $(BUILD_DIR)/db-interface-suite.o
+
+
+# --- lib suite ---
+LIB_OBJS := $(addprefix $(BUILD_DIR)/, lib-suite.o lib.o unity.o)
+
+$(BUILD_DIR)/lib-suite.out:  $(LIB_OBJS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $(BUILD_DIR)/lib-suite.out $(LIB_OBJS)
+$(BUILD_DIR)/lib-suite.o: lib-suite.c ../src/lib.h $(UNITY_HEADERS) 
+	$(CC) $(CFLAGS) -c lib-suite.c -o $(BUILD_DIR)/lib-suite.o
 $(BUILD_DIR)/lib.o: ../src/lib.c ../src/lib.h | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c ../src/lib.c -o $(BUILD_DIR)/lib.o
 
+
+# -----------------
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
@@ -31,4 +53,7 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 test:
-	$(BUILD_DIR)/$(OUT)
+	$(BUILD_DIR)/parser-suite.out
+	$(BUILD_DIR)/db-interface-suite.out
+	$(BUILD_DIR)/lib-suite.out
+

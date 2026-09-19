@@ -6,7 +6,6 @@
 #include "vendor/unity_internals.h"
 
 #include "../src/parser.h"
-#include "../src/lib.h"
 
 void setUp(void)
 {
@@ -147,18 +146,6 @@ void test_do_not_allow_empty_value(void)
 
 // TODO: cannot_redefine_key
 
-// -------------
-// -- Hashing --
-// -------------
-
-void test_it_correctly_hashes_a_basic_string(void)
-{
-	char *input = "hello";
-	uint64_t output = poly_hash(input);
-
-	TEST_ASSERT_EQUAL_UINT64(90986922, output);
-}
-
 // ----------
 // -- Main --
 // ----------
@@ -173,8 +160,6 @@ int main(void)
 	RUN_TEST(test_do_not_allow_empty_name);
 	RUN_TEST(test_do_not_allow_empty_key);
 	RUN_TEST(test_do_not_allow_empty_value);
-
-	RUN_TEST(test_it_correctly_hashes_a_basic_string);
 
 	return UNITY_END();
 }
