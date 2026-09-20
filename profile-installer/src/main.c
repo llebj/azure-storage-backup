@@ -10,6 +10,7 @@
 
 #include <systemd/sd-id128.h>
 
+#include "db-interface.h"
 #include "lib.h"
 #include "parser.h"
 
