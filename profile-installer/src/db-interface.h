@@ -1,7 +1,12 @@
+#include <stddef.h>
 #include <stdint.h>
 
 #include "./vendor/sqlite3/sqlite3.h"
 
+enum InstallerCode {
+	INSTALLER_OK = 0,
+	INSTALLER_FAIL = 1
+};
 enum ProfileStatus {
 	Active,
 	Retired
@@ -18,4 +23,5 @@ struct profile {
 	enum ProfileStatus status;
 };
 
-struct profile * get_current_profiles(struct sqlite3 *db);
+enum InstallerCode get_current_profiles(struct sqlite3 *db, struct profile **profiles,
+		size_t *profiles_size);

@@ -13,6 +13,7 @@
 #include "db-interface.h"
 #include "lib.h"
 #include "parser.h"
+#include "vendor/sqlite3/sqlite3.h"
 
 #define APP_ID	SD_ID128_MAKE(e1,dc,79,91,d6,3a,45,36,09,0d,04,2a,c8,2a,50,91)
 
@@ -77,7 +78,6 @@ int main(int argc, char **argv)
 	//	it gets marked as 'retired'
 
 
-
 	// compute fingerprints for all new profiles
 	struct profile *new_profiles = map_profiles(parser_profiles, parser_profile_count);
 	if (new_profiles == NULL) {
@@ -86,6 +86,23 @@ int main(int argc, char **argv)
 	}
 	// sort by fingerprints
 	qsort(&new_profiles, parser_profile_count, sizeof *new_profiles, &compare_profiles);
+
+	struct sqlite3 *db = NULL;
+	if (sqlite3_open_v2("/home/dev/.local/share/az-backup.db", &db,
+				SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK) {
+		fprintf(stderr, "Failed to open program database: %s\n", sqlite3_errmsg(db));
+		// TODO: free all of the profile memory.
+		exit(EXIT_FAILURE);
+	}
+
+	struct profile *current_profiles = NULL;
+	size_t current_profiles_count = 0;
+	if (get_current_profiles(db, &current_profiles, &current_profiles_count) != INSTALLER_OK) {
+		fprintf(stderr, "Failed to get current profiles.\n");
+		sqlite3_close(db);
+		// TODO: free all of the profile memory.
+		exit(EXIT_FAILURE);
+	}
 
 	// retrieve all existing profiles sorted by fingerprint
 	// merge across profiles
@@ -176,7 +193,7 @@ struct profile * map_profiles(struct parser_profile *parser_profiles, size_t cou
 			fprintf(stderr, "Failed to allocate profile source buffer.\n");
 			exit(EXIT_FAILURE);
 		}
-		memcpy(dst_buf, current_profile.source, dst_buf_len);
+		memcpy(dst_buf, current_profile.destination, dst_buf_len);
 
 		profiles[current].fingerprint = hash;
 		profiles[current].name = name_buf;
