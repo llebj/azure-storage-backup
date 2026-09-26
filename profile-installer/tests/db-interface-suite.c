@@ -39,6 +39,10 @@ void tearDown(void)
 	sqlite3_close(db);
 }
 
+// --------------------------
+// -- get_current_profiles --
+// --------------------------
+
 void test_it_populates_a_profile_correctly(void)
 {
 	// Arrange
@@ -193,6 +197,22 @@ void test_it_returns_profiles_sorted_by_fingerprint_ascending(void)
 		TEST_ASSERT_EQUAL_UINT64(expected[i], profiles[i].fingerprint);
 	}
 }
+
+// ------------------------
+// -- reconcile_profiles --
+// ------------------------
+
+void test_it_deletes_a_profile_that_no_longer_exists(void) { }
+
+void test_it_inserts_a_new_profile(void) { }
+
+void test_it_creates_a_new_version_of_an_existing_profile(void) { }
+
+void test_it_does_not_change_a_profile_that_has_not_changed(void) { }
+
+// ----------
+// -- main --
+// ----------
 
 int main(void)
 {

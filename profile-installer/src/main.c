@@ -84,8 +84,6 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Failed to map profiles.\n");
 		exit(EXIT_SUCCESS);
 	}
-	// sort by fingerprints
-	qsort(&new_profiles, parser_profile_count, sizeof *new_profiles, &compare_profiles);
 
 	struct sqlite3 *db = NULL;
 	if (sqlite3_open_v2("/home/dev/.local/share/az-backup.db", &db,
@@ -94,31 +92,8 @@ int main(int argc, char **argv)
 		// TODO: free all of the profile memory.
 		exit(EXIT_FAILURE);
 	}
-
-	struct profile *current_profiles = NULL;
-	size_t current_profiles_count = 0;
-	if (get_current_profiles(db, &current_profiles, &current_profiles_count) != INSTALLER_OK) {
-		fprintf(stderr, "Failed to get current profiles.\n");
-		sqlite3_close(db);
-		// TODO: free all of the profile memory.
-		exit(EXIT_FAILURE);
-	}
-
-	// retrieve all existing profiles sorted by fingerprint
-	// merge across profiles
-	//	if DB key < parsed key
-	//		deleted from DB
-	//	else if DB key > parsed key
-	//		insert new profile
-	//	else
-	//		insert new version of existing profile
-}
-
-int compare_profiles(const void *pa, const void *pb) {
-	const struct profile *a = pa;
-	const struct profile *b = pb;
-
-	return (a->fingerprint > b->fingerprint) - (a->fingerprint < b->fingerprint);
+	
+	// reconcile_profiles
 }
 
 struct profile * map_profiles(struct parser_profile *parser_profiles, size_t count)

@@ -16,6 +16,8 @@ enum InstallerCode write_text_field(struct sqlite3_stmt *statement, int col, cha
 enum InstallerCode write_int64_field(struct sqlite3_stmt *statement, int col, uint64_t *field);
 enum InstallerCode write_int32_field(struct sqlite3_stmt *statement, int col, uint32_t *field);
 
+int compare_profiles(const void *pa, const void *pb);
+
 enum InstallerCode get_current_profiles(struct sqlite3 *db, struct profile **profiles,
 		size_t *profiles_size)
 {
@@ -158,4 +160,38 @@ enum InstallerCode write_int32_field(struct sqlite3_stmt *statement, int col, ui
 {
 	*field = sqlite3_column_int(statement, col);
 	return INSTALLER_OK;
+}
+
+enum InstallerCode reconcile_profiles(struct sqlite3 *db,
+		struct profile *new_profiles, size_t new_profiles_len)
+{
+	struct profile *current_profiles = NULL;
+	size_t current_profiles_count = 0;
+	if (get_current_profiles(db, &current_profiles, &current_profiles_count) != INSTALLER_OK) {
+		fprintf(stderr, "reconcile_profiles: failed to get current profiles.\n");
+		// TODO: free all of the profile memory.
+		return INSTALLER_FAIL;
+	}
+	// sort by fingerprints
+	qsort(&new_profiles, new_profiles_len, sizeof *new_profiles, &compare_profiles);
+
+	// for new_profiles and current_profiles
+	//	if DB key < parsed key or no new profiles
+	//		deleted from DB
+	//	else if DB key > parsed key or no current profiles
+	//		insert new profile
+	//	else if profiles have diverged
+	//		insert new version of existing profile
+	//	else
+	//		do nothing
+
+	return INSTALLER_OK;
+}
+
+int compare_profiles(const void *pa, const void *pb)
+{
+	const struct profile *a = pa;
+	const struct profile *b = pb;
+
+	return (a->fingerprint > b->fingerprint) - (a->fingerprint < b->fingerprint);
 }
