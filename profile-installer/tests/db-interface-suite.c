@@ -59,9 +59,9 @@ void test_it_populates_a_profile_correctly(void)
 		"VALUES ("
 			"?1,"
 			"?2,"
-			"\"test\","
-			"\"/\","
-			"\"/.snapshots\","
+			"'test',"
+			"'/',"
+			"'/.snapshots',"
 			"1,"
 			"0"
 		");";
@@ -112,9 +112,9 @@ void test_it_only_retrieves_the_most_recent_version(void)
 		"VALUES ("
 			"?1,"
 			"?2,"
-			"\"test\","
-			"\"/\","
-			"\"/.snapshots\","
+			"'test',"
+			"'/',"
+			"'/.snapshots',"
 			"1,"
 			"0"
 		");";
@@ -162,9 +162,9 @@ void test_it_returns_profiles_sorted_by_fingerprint_ascending(void)
 		"VALUES ("
 			"?1,"
 			"1,"
-			"\"test\","
-			"\"/\","
-			"\"/.snapshots\","
+			"'test',"
+			"'/',"
+			"'/.snapshots',"
 			"1,"
 			"0"
 		");";
@@ -198,13 +198,73 @@ void test_it_returns_profiles_sorted_by_fingerprint_ascending(void)
 	}
 }
 
+void test_if_no_profiles_exist_it_returns_zero_and_an_empty_pointer(void)
+{
+	// Arrange
+	// Act
+	struct profile *profiles = NULL;
+	size_t profiles_count = 0;
+	enum InstallerCode result = get_current_profiles(db, &profiles, &profiles_count);
+
+	// Assert
+	TEST_ASSERT_EQUAL_INT(INSTALLER_OK, result);
+	TEST_ASSERT_EQUAL_size_t(0, profiles_count);
+	TEST_ASSERT_NULL(profiles);
+}
+
 // ------------------------
 // -- reconcile_profiles --
 // ------------------------
 
-void test_it_deletes_a_profile_that_no_longer_exists(void) { }
+void test_it_retires_a_profile_if_it_no_longer_exists(void) { }
 
-void test_it_inserts_a_new_profile(void) { }
+void test_it_retires_all_profiles_if_none_are_provided(void) { }
+
+void test_it_inserts_a_new_profile_for_a_fresh_install(void)
+{
+	// Arrange
+	// Act
+	struct profile profiles[1];
+	profiles->fingerprint = 1;
+	profiles->version = 1;
+	profiles->name = "test";
+	profiles->source = "/";
+	profiles->destination = "/.snapshots";
+	profiles->trigger_type = 1;
+	profiles->status = Active;
+	enum InstallerCode result = reconcile_profiles(db, profiles, sizeof(profiles) / sizeof(*profiles));
+
+	// Assert
+	char *assert_sql = "SELECT\n"
+		"fingerprint,\n"
+		"version,\n"
+		"name,\n"
+		"source,\n"
+		"destination,\n"
+		"trigger_type,\n"
+		"status\n"
+		"FROM profiles WHERE fingerprint = ?1;";
+	struct sqlite3_stmt *assert_statement;
+	sqlite3_prepare_v2(db, assert_sql, strlen(assert_sql), &assert_statement, NULL);
+	sqlite3_bind_int(assert_statement, 1, profiles->fingerprint);
+
+	TEST_ASSERT_EQUAL_INT(SQLITE_ROW, sqlite3_step(assert_statement));
+	TEST_ASSERT_EQUAL_INT64(profiles->fingerprint, sqlite3_column_int64(assert_statement, 0));
+	TEST_ASSERT_EQUAL_INT(profiles->version, sqlite3_column_int(assert_statement, 1));
+	TEST_ASSERT_EQUAL_STRING(profiles->name, sqlite3_column_text(assert_statement, 2));
+	TEST_ASSERT_EQUAL_STRING(profiles->source, sqlite3_column_text(assert_statement, 3));
+	TEST_ASSERT_EQUAL_STRING(profiles->destination, sqlite3_column_text(assert_statement, 4));
+	TEST_ASSERT_EQUAL_INT(profiles->trigger_type, sqlite3_column_int(assert_statement, 5));
+	TEST_ASSERT_EQUAL_INT(profiles->status, sqlite3_column_int(assert_statement, 6));
+	// We only expect a single row of data
+	TEST_ASSERT_EQUAL_INT(SQLITE_DONE, sqlite3_step(assert_statement));
+
+	// Unity jumps out of the test on failure so this won't get called.
+	// TODO: Copy values out into an 'actual' profile, then finalize, then assert
+	sqlite3_finalize(assert_statement);
+}
+
+void test_it_inserts_a_new_profile_for_an_existing_install(void) { }
 
 void test_it_creates_a_new_version_of_an_existing_profile(void) { }
 
@@ -227,6 +287,9 @@ int main(void)
 	RUN_TEST(test_it_populates_a_profile_correctly);
 	RUN_TEST(test_it_only_retrieves_the_most_recent_version);
 	RUN_TEST(test_it_returns_profiles_sorted_by_fingerprint_ascending);
+	RUN_TEST(test_if_no_profiles_exist_it_returns_zero_and_an_empty_pointer);
+
+	RUN_TEST(test_it_inserts_a_new_profile_for_a_fresh_install);
 
 	return UNITY_END();
 }

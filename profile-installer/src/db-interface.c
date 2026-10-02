@@ -16,6 +16,8 @@ enum InstallerCode write_text_field(struct sqlite3_stmt *statement, int col, cha
 enum InstallerCode write_int64_field(struct sqlite3_stmt *statement, int col, uint64_t *field);
 enum InstallerCode write_int32_field(struct sqlite3_stmt *statement, int col, uint32_t *field);
 
+enum InstallerCode create_profile(struct sqlite3 *db, struct profile *profile);
+
 int compare_profiles(const void *pa, const void *pb);
 
 enum InstallerCode get_current_profiles(struct sqlite3 *db, struct profile **profiles,
@@ -78,7 +80,7 @@ enum InstallerCode get_current_profiles(struct sqlite3 *db, struct profile **pro
 		return INSTALLER_FAIL;
 	}
 
-	*profiles = result;
+	*profiles = row_count > 0 ? result : NULL;
 	*profiles_size = row_count;
 	return INSTALLER_OK;
 }
@@ -163,29 +165,81 @@ enum InstallerCode write_int32_field(struct sqlite3_stmt *statement, int col, ui
 }
 
 enum InstallerCode reconcile_profiles(struct sqlite3 *db,
-		struct profile *new_profiles, size_t new_profiles_len)
+		struct profile *new_profiles, size_t new_prof_len)
 {
 	struct profile *current_profiles = NULL;
-	size_t current_profiles_count = 0;
-	if (get_current_profiles(db, &current_profiles, &current_profiles_count) != INSTALLER_OK) {
+	size_t cur_prof_len = 0;
+	if (get_current_profiles(db, &current_profiles, &cur_prof_len) != INSTALLER_OK) {
 		fprintf(stderr, "reconcile_profiles: failed to get current profiles.\n");
 		// TODO: free all of the profile memory.
 		return INSTALLER_FAIL;
 	}
 	// sort by fingerprints
-	qsort(&new_profiles, new_profiles_len, sizeof *new_profiles, &compare_profiles);
+	qsort(&new_profiles, new_prof_len, sizeof *new_profiles, &compare_profiles);
 
-	// for new_profiles and current_profiles
-	//	if DB key < parsed key or no new profiles
-	//		deleted from DB
-	//	else if DB key > parsed key or no current profiles
-	//		insert new profile
-	//	else if profiles have diverged
-	//		insert new version of existing profile
-	//	else
-	//		do nothing
+	for (size_t cp_i = 0, np_i = 0; cp_i < cur_prof_len || np_i < new_prof_len; ) {
+		// for new_profiles and current_profiles
+		//	if DB key < parsed key or no new profiles
+		//		deleted from DB
+		//	else if DB key > parsed key or no current profiles
+		//		insert new profile
+		//	else if profiles have diverged
+		//		insert new version of existing profile
+		//	else
+		//		do nothing
+		if (cp_i >= cur_prof_len) {
+			// There are no more current profiles so the the current
+			// profile must be new.
+			create_profile(db, &new_profiles[np_i++]);
+			np_i++;
+			continue;
+		}
+
+		struct profile current_prof = current_profiles[cp_i],
+			       new_prof = new_profiles[np_i];
+		if (current_prof.fingerprint < new_prof.fingerprint) {
+			// create_profile(current_prof);
+		}
+		else {
+			// We can't handle this case so we simply exit.
+			fprintf(stderr,
+				"reconcile_profiles: unsupported operation: cp_i = %ld, np_i = %ld\n", cp_i, np_i);
+			exit(EXIT_FAILURE);
+		}
+	}
 
 	return INSTALLER_OK;
+}
+
+enum InstallerCode create_profile(struct sqlite3 *db, struct profile *profile)
+{
+	enum InstallerCode result = INSTALLER_OK;
+
+	char *sql =
+		"INSERT INTO profiles (\n"
+			"fingerprint, version, name, source, destination, trigger_type, status)\n"
+		"VALUES\n"
+			"(?1, ?2, ?3, ?4, ?5, ?6, ?7);";
+	struct sqlite3_stmt *statement;
+
+	sqlite3_prepare_v2(db, sql, strlen(sql), &statement, NULL);
+	sqlite3_bind_int64(statement, 1, profile->fingerprint);
+	sqlite3_bind_int(statement, 2, 1);
+	sqlite3_bind_text(statement, 3, profile->name, strlen(profile->name), SQLITE_STATIC);
+	sqlite3_bind_text(statement, 4, profile->source, strlen(profile->source), SQLITE_STATIC);
+	sqlite3_bind_text(statement, 5, profile->destination, strlen(profile->destination), SQLITE_STATIC);
+	sqlite3_bind_int(statement, 6, profile->trigger_type);
+	sqlite3_bind_int(statement, 7, Active);
+	if (sqlite3_step(statement) != SQLITE_DONE) {
+		fprintf(stderr,
+			"create_profile: failed to insert profile with fingerprint %ld: %s\n",
+			profile->fingerprint,
+			sqlite3_errmsg(db));
+		result = INSTALLER_FAIL;
+	}
+	sqlite3_finalize(statement);
+
+	return result;
 }
 
 int compare_profiles(const void *pa, const void *pb)
