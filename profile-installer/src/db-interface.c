@@ -175,30 +175,36 @@ enum InstallerCode reconcile_profiles(struct sqlite3 *db,
 		return INSTALLER_FAIL;
 	}
 	// sort by fingerprints
-	qsort(&new_profiles, new_prof_len, sizeof *new_profiles, &compare_profiles);
+	qsort(new_profiles, new_prof_len, sizeof *new_profiles, &compare_profiles);
 
 	for (size_t cp_i = 0, np_i = 0; cp_i < cur_prof_len || np_i < new_prof_len; ) {
 		// for new_profiles and current_profiles
 		//	if DB key < parsed key or no new profiles
-		//		deleted from DB
+		//		retire existing profile
 		//	else if DB key > parsed key or no current profiles
 		//		insert new profile
 		//	else if profiles have diverged
 		//		insert new version of existing profile
 		//	else
 		//		do nothing
+
 		if (cp_i >= cur_prof_len) {
 			// There are no more current profiles so the the current
 			// profile must be new.
 			create_profile(db, &new_profiles[np_i++]);
-			np_i++;
 			continue;
 		}
 
 		struct profile current_prof = current_profiles[cp_i],
 			       new_prof = new_profiles[np_i];
-		if (current_prof.fingerprint < new_prof.fingerprint) {
-			// create_profile(current_prof);
+		if (current_prof.fingerprint > new_prof.fingerprint) {
+			create_profile(db, &new_profiles[np_i++]);
+			continue;
+		}
+		else if (current_prof.fingerprint == new_prof.fingerprint) {
+			// bump_version(current_prof, new_prof);
+			np_i++;
+			cp_i++;
 		}
 		else {
 			// We can't handle this case so we simply exit.
