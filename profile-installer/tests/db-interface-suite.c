@@ -279,7 +279,7 @@ void test_it_inserts_a_new_profile_for_an_existing_install(void)
 		"INSERT INTO profiles (\n"
 			"fingerprint, version, name, source, trigger_type, status)\n"
 		"VALUES\n"
-			"(1, 1, 'root', '/', '/.snapshots', 1, 0);";
+			"(1, 1, 'root', '/', 1, 0);";
 	sqlite3_exec(db, init_sql, NULL, NULL, NULL);
 
 	// Act
@@ -341,7 +341,215 @@ void test_it_completes_a_profile_that_is_being_created(void)
 	TEST_ASSERT_EQUAL_INT(Active, profiles->status);
 }
 
-void test_it_creates_a_new_version_of_an_existing_profile(void) { }
+void test_it_creates_a_new_version_of_a_profile_when_the_name_is_changed(void)
+{
+	// Arrange
+	struct profile profiles[1];
+
+	profiles[0].fingerprint = 1;
+	profiles[0].name = "v2";
+	profiles[0].source = "/";
+	profiles[0].trigger_type = 1;
+
+	// Insert the 'root' profile as the existing profile.
+	char *init_sql =
+		"INSERT INTO profiles (\n"
+			"fingerprint, version, name, source, trigger_type, status)\n"
+		"VALUES\n"
+			"(1, 1, 'v1', '/', 1, 0);";
+	sqlite3_exec(db, init_sql, NULL, NULL, NULL);
+
+	// Act
+	enum InstallerCode result = reconcile_profiles(db, profiles, sizeof(profiles) / sizeof(*profiles));
+
+	// Assert
+	char *assert_sql = "SELECT\n"
+		"fingerprint,\n"
+		"version,\n"
+		"name,\n"
+		"source,\n"
+		"trigger_type,\n"
+		"status\n"
+		"FROM profiles ORDER BY version;";
+	struct sqlite3_stmt *assert_statement;
+	sqlite3_prepare_v2(db, assert_sql, strlen(assert_sql), &assert_statement, NULL);
+
+	struct profile actual[2] = {0};
+	int row_one = sqlite3_step(assert_statement);
+	if (row_one != SQLITE_ROW) {
+		sqlite3_finalize(assert_statement);
+		TEST_FAIL_MESSAGE("No rows were returned.");
+	}
+	populate_profile(assert_statement, &actual[0]);
+	int row_two = sqlite3_step(assert_statement);
+	if (row_two != SQLITE_ROW) {
+		sqlite3_finalize(assert_statement);
+		TEST_FAIL_MESSAGE("Only one row was returned.");
+	}
+	populate_profile(assert_statement, &actual[1]);
+	int done = sqlite3_step(assert_statement);
+	sqlite3_finalize(assert_statement);
+
+	TEST_ASSERT_EQUAL_INT64(profiles[0].fingerprint, actual[0].fingerprint);
+	TEST_ASSERT_EQUAL_INT(1, actual[0].version);
+
+	TEST_ASSERT_EQUAL_INT64(profiles[0].fingerprint, actual[1].fingerprint);
+	TEST_ASSERT_EQUAL_INT(2, actual[1].version);
+	TEST_ASSERT_EQUAL_STRING(profiles[0].name, actual[1].name);
+	TEST_ASSERT_EQUAL_STRING(profiles[0].source, actual[1].source);
+	TEST_ASSERT_EQUAL_INT(profiles[0].trigger_type, actual[1].trigger_type);
+	TEST_ASSERT_EQUAL_INT(Active, actual[1].status);
+
+	// We expect two rows of data; one for the existing profile, and another
+	// for the new version.
+	TEST_ASSERT_EQUAL_INT(SQLITE_DONE, done);
+}
+
+void test_it_creates_a_new_version_of_a_profile_when_the_trigger_type_is_changed(void)
+{
+	// Arrange
+	struct profile profiles[1];
+
+	profiles[0].fingerprint = 1;
+	profiles[0].name = "v1";
+	profiles[0].source = "/";
+	profiles[0].trigger_type = 2;
+
+	// Insert the 'root' profile as the existing profile.
+	char *init_sql =
+		"INSERT INTO profiles (\n"
+			"fingerprint, version, name, source, trigger_type, status)\n"
+		"VALUES\n"
+			"(1, 1, 'v1', '/', 1, 0);";
+	sqlite3_exec(db, init_sql, NULL, NULL, NULL);
+
+	// Act
+	enum InstallerCode result = reconcile_profiles(db, profiles, sizeof(profiles) / sizeof(*profiles));
+
+	// Assert
+	char *assert_sql = "SELECT\n"
+		"fingerprint,\n"
+		"version,\n"
+		"name,\n"
+		"source,\n"
+		"trigger_type,\n"
+		"status\n"
+		"FROM profiles ORDER BY version;";
+	struct sqlite3_stmt *assert_statement;
+	sqlite3_prepare_v2(db, assert_sql, strlen(assert_sql), &assert_statement, NULL);
+
+	struct profile actual[2] = {0};
+	int row_one = sqlite3_step(assert_statement);
+	if (row_one != SQLITE_ROW) {
+		sqlite3_finalize(assert_statement);
+		TEST_FAIL_MESSAGE("No rows were returned.");
+	}
+	populate_profile(assert_statement, &actual[0]);
+	int row_two = sqlite3_step(assert_statement);
+	if (row_two != SQLITE_ROW) {
+		sqlite3_finalize(assert_statement);
+		TEST_FAIL_MESSAGE("Only one row was returned.");
+	}
+	populate_profile(assert_statement, &actual[1]);
+	int done = sqlite3_step(assert_statement);
+	sqlite3_finalize(assert_statement);
+
+	TEST_ASSERT_EQUAL_INT64(profiles[0].fingerprint, actual[0].fingerprint);
+	TEST_ASSERT_EQUAL_INT(1, actual[0].version);
+
+	TEST_ASSERT_EQUAL_INT64(profiles[0].fingerprint, actual[1].fingerprint);
+	TEST_ASSERT_EQUAL_INT(2, actual[1].version);
+	TEST_ASSERT_EQUAL_STRING(profiles[0].name, actual[1].name);
+	TEST_ASSERT_EQUAL_STRING(profiles[0].source, actual[1].source);
+	TEST_ASSERT_EQUAL_INT(profiles[0].trigger_type, actual[1].trigger_type);
+	TEST_ASSERT_EQUAL_INT(Active, actual[1].status);
+
+	// We expect two rows of data; one for the existing profile, and another
+	// for the new version.
+	TEST_ASSERT_EQUAL_INT(SQLITE_DONE, done);
+}
+
+void test_it_completes_a_profile_that_is_being_bumped(void)
+{
+	// Arrange
+	struct profile profiles[1];
+
+	profiles[0].fingerprint = 1;
+	profiles[0].name = "v2";
+	profiles[0].source = "/";
+	profiles[0].trigger_type = 1;
+
+	// Insert the 'root' profile as the existing profile.
+	char *init_sql =
+		"INSERT INTO profiles (\n"
+			"fingerprint, version, name, source, trigger_type, status)\n"
+		"VALUES\n"
+			"(1, 1, 'v1', '/', 1, 0);";
+	sqlite3_exec(db, init_sql, NULL, NULL, NULL);
+
+	// Act
+	enum InstallerCode result = reconcile_profiles(db, profiles, sizeof(profiles) / sizeof(*profiles));
+
+	// Assert
+	TEST_ASSERT_EQUAL_INT(2, profiles->version);
+	TEST_ASSERT_EQUAL_INT(Active, profiles->status);
+}
+
+void test_it_retires_a_version_that_has_been_bumped(void)
+{
+	// Arrange
+	const uint64_t fingerprint = 1;
+	const uint32_t version = 1;
+	struct profile profiles[1];
+
+	profiles[0].fingerprint = fingerprint;
+	profiles[0].name = "v2";
+	profiles[0].source = "/";
+	profiles[0].trigger_type = 1;
+
+	// Insert the 'root' profile as the existing profile.
+	char *init_sql =
+		"INSERT INTO profiles (\n"
+			"fingerprint, version, name, source, trigger_type, status)\n"
+		"VALUES\n"
+			"(?1, ?2, 'v1', '/', 1, 0);";
+	struct sqlite3_stmt *statement;
+	sqlite3_prepare_v2(db, init_sql, strlen(init_sql), &statement, NULL);
+	sqlite3_bind_int64(statement, 1, fingerprint);
+	sqlite3_bind_int(statement, 2, version);
+	sqlite3_step(statement);
+	sqlite3_finalize(statement);
+
+	// Act
+	enum InstallerCode result = reconcile_profiles(db, profiles, sizeof(profiles) / sizeof(*profiles));
+
+	// Assert
+	char *assert_sql = "SELECT\n"
+		"fingerprint,\n"
+		"version,\n"
+		"name,\n"
+		"source,\n"
+		"trigger_type,\n"
+		"status\n"
+		"FROM profiles\n"
+		"WHERE version = ?1;";
+	struct sqlite3_stmt *assert_stmt;
+
+	struct profile actual[1] = {0};
+	sqlite3_prepare_v2(db, assert_sql, strlen(assert_sql), &assert_stmt, NULL);
+	sqlite3_bind_int(assert_stmt, 1, version);
+	int row = sqlite3_step(assert_stmt);
+	if (row != SQLITE_ROW) {
+		sqlite3_finalize(assert_stmt);
+		TEST_FAIL_MESSAGE("No rows were returned.");
+	}
+	populate_profile(assert_stmt, actual);
+	int done = sqlite3_step(assert_stmt);
+
+	TEST_ASSERT_EQUAL_INT(version, actual->version);
+	TEST_ASSERT_EQUAL_INT(Retired, actual->status);
+	TEST_ASSERT_EQUAL_INT(SQLITE_DONE, done);
+}
 
 void test_it_does_not_change_a_profile_that_has_not_changed(void) { }
 
@@ -367,6 +575,10 @@ int main(void)
 	RUN_TEST(test_it_inserts_a_new_profile_for_a_fresh_install);
 	RUN_TEST(test_it_inserts_a_new_profile_for_an_existing_install);
 	RUN_TEST(test_it_completes_a_profile_that_is_being_created);
+	RUN_TEST(test_it_creates_a_new_version_of_a_profile_when_the_name_is_changed);
+	RUN_TEST(test_it_creates_a_new_version_of_a_profile_when_the_trigger_type_is_changed);
+	RUN_TEST(test_it_completes_a_profile_that_is_being_bumped);
+	RUN_TEST(test_it_retires_a_version_that_has_been_bumped);
 
 	return UNITY_END();
 }

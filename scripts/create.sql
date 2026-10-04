@@ -4,7 +4,6 @@ CREATE TABLE IF NOT EXISTS profiles (
 	version INTEGER NOT NULL,
 	name TEXT NOT NULL,
 	source TEXT NOT NULL,
-	destination TEXT NOT NULL,
 	trigger_type INTEGER NOT NULL,
 	status INTEGER NOT NULL,
 	UNIQUE (fingerprint, version)

@@ -16,6 +16,8 @@ enum InstallerCode write_text_field(struct sqlite3_stmt *statement, int col, cha
 enum InstallerCode write_int64_field(struct sqlite3_stmt *statement, int col, uint64_t *field);
 enum InstallerCode write_int32_field(struct sqlite3_stmt *statement, int col, uint32_t *field);
 
+enum InstallerCode bump_version(struct sqlite3 *db, struct profile current, struct profile *new);
+bool requires_bump(struct profile current, struct profile new);
 enum InstallerCode create_profile(struct sqlite3 *db, struct profile *profile);
 
 int compare_profiles(const void *pa, const void *pb);
@@ -191,14 +193,16 @@ enum InstallerCode reconcile_profiles(struct sqlite3 *db,
 			continue;
 		}
 
-		struct profile current_prof = current_profiles[cp_i],
-			       new_prof = new_profiles[np_i];
-		if (current_prof.fingerprint > new_prof.fingerprint) {
-			create_profile(db, &new_profiles[np_i++]);
-			continue;
+		struct profile *current_prof = &current_profiles[cp_i],
+			       *new_prof = &new_profiles[np_i];
+		if (current_prof->fingerprint > new_prof->fingerprint) {
+			create_profile(db, new_prof);
+			np_i++;
 		}
-		else if (current_prof.fingerprint == new_prof.fingerprint) {
-			// bump_version(current_prof, new_prof);
+		else if (current_prof->fingerprint == new_prof->fingerprint) {
+			if (requires_bump(*current_prof, *new_prof)) {
+				bump_version(db, *current_prof, new_prof);
+			}
 			np_i++;
 			cp_i++;
 		}
@@ -211,6 +215,51 @@ enum InstallerCode reconcile_profiles(struct sqlite3 *db,
 	}
 
 	return INSTALLER_OK;
+}
+
+enum InstallerCode bump_version(struct sqlite3 *db, struct profile current, struct profile *new)
+{
+	enum InstallerCode result = INSTALLER_OK;
+	const uint32_t version = current.version + 1;
+	const enum ProfileStatus status = Active;
+
+	char *sql =
+		"INSERT INTO profiles (\n"
+			"fingerprint, version, name, source, trigger_type, status)\n"
+		"VALUES\n"
+			"(?1, ?2, ?3, ?4, ?5, ?6);";
+	struct sqlite3_stmt *statement;
+
+	sqlite3_prepare_v2(db, sql, strlen(sql), &statement, NULL);
+	sqlite3_bind_int64(statement, 1, new->fingerprint);
+	sqlite3_bind_int(statement, 2, version);
+	sqlite3_bind_text(statement, 3, new->name, strlen(new->name), SQLITE_STATIC);
+	sqlite3_bind_text(statement, 4, new->source, strlen(new->source), SQLITE_STATIC);
+	sqlite3_bind_int(statement, 5, new->trigger_type);
+	sqlite3_bind_int(statement, 6, status);
+	if (sqlite3_step(statement) != SQLITE_DONE) {
+		fprintf(stderr,
+			"bump_version: failed to insert version %d for profile with fingerprint %ld: %s\n",
+			version,
+			new->fingerprint,
+			sqlite3_errmsg(db));
+		result = INSTALLER_FAIL;
+	}
+	sqlite3_finalize(statement);
+
+	// Setting these is a side effect that modifies the input parameter.
+	// This is potentially unexpected, butthe profile created in the db
+	// must have these values and the reconciled profile must match.
+	new->version = version;
+	new->status = status;
+
+	return result;
+}
+
+bool requires_bump(struct profile current, struct profile new)
+{
+	return strcmp(current.name, new.name) != 0
+		|| current.trigger_type != new.trigger_type;
 }
 
 enum InstallerCode create_profile(struct sqlite3 *db, struct profile *profile)
