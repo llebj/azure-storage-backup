@@ -220,6 +220,8 @@ enum InstallerCode reconcile_profiles(struct sqlite3 *db,
 enum InstallerCode create_profile(struct sqlite3 *db, struct profile *profile)
 {
 	enum InstallerCode result = INSTALLER_OK;
+	const uint32_t version = 1;
+	const enum ProfileStatus status = Active;
 
 	char *sql =
 		"INSERT INTO profiles (\n"
@@ -230,12 +232,12 @@ enum InstallerCode create_profile(struct sqlite3 *db, struct profile *profile)
 
 	sqlite3_prepare_v2(db, sql, strlen(sql), &statement, NULL);
 	sqlite3_bind_int64(statement, 1, profile->fingerprint);
-	sqlite3_bind_int(statement, 2, 1);
+	sqlite3_bind_int(statement, 2, version);
 	sqlite3_bind_text(statement, 3, profile->name, strlen(profile->name), SQLITE_STATIC);
 	sqlite3_bind_text(statement, 4, profile->source, strlen(profile->source), SQLITE_STATIC);
 	sqlite3_bind_text(statement, 5, profile->destination, strlen(profile->destination), SQLITE_STATIC);
 	sqlite3_bind_int(statement, 6, profile->trigger_type);
-	sqlite3_bind_int(statement, 7, Active);
+	sqlite3_bind_int(statement, 7, status);
 	if (sqlite3_step(statement) != SQLITE_DONE) {
 		fprintf(stderr,
 			"create_profile: failed to insert profile with fingerprint %ld: %s\n",
@@ -244,6 +246,12 @@ enum InstallerCode create_profile(struct sqlite3 *db, struct profile *profile)
 		result = INSTALLER_FAIL;
 	}
 	sqlite3_finalize(statement);
+
+	// Setting these is a side effect that modifies the input parameter.
+	// This is potentially unexpected, butthe profile created in the db
+	// must have these values and the reconciled profile must match.
+	profile->version = version;
+	profile->status = status;
 
 	return result;
 }

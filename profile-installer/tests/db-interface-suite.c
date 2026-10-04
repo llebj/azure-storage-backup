@@ -338,6 +338,24 @@ void test_it_inserts_a_new_profile_for_an_existing_install(void)
 	TEST_ASSERT_EQUAL_INT(SQLITE_DONE, done);
 }
 
+void test_it_completes_a_profile_that_is_being_created(void)
+{
+	// Arrange
+	struct profile profiles[1];
+	profiles->fingerprint = 1;
+	profiles->name = "test";
+	profiles->source = "/";
+	profiles->destination = "/.snapshots";
+	profiles->trigger_type = 1;
+
+	// Act
+	enum InstallerCode result = reconcile_profiles(db, profiles, sizeof(profiles) / sizeof(*profiles));
+
+	// Assert
+	TEST_ASSERT_EQUAL_INT(1, profiles->version);
+	TEST_ASSERT_EQUAL_INT(Active, profiles->status);
+}
+
 void test_it_creates_a_new_version_of_an_existing_profile(void) { }
 
 void test_it_does_not_change_a_profile_that_has_not_changed(void) { }
@@ -363,6 +381,7 @@ int main(void)
 
 	RUN_TEST(test_it_inserts_a_new_profile_for_a_fresh_install);
 	RUN_TEST(test_it_inserts_a_new_profile_for_an_existing_install);
+	RUN_TEST(test_it_completes_a_profile_that_is_being_created);
 
 	return UNITY_END();
 }
