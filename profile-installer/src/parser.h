@@ -22,7 +22,6 @@ enum ParserState {
 enum CurrentFileKey {
 	None,
 	Source,
-	Destination,
 	Type
 };
 
@@ -33,7 +32,6 @@ struct slice {
 struct parser_profile {
 	char* name;
 	char* source;
-	char* destination;
 	uint8_t type;
 };
 

@@ -207,7 +207,7 @@ struct parser_profile* parse_profiles(
 				}
 				profiles[current_profile].type = type;
 			}
-			else {
+			else if (current_key == Source) {
 				char *value_buf;
 				if ((value_buf = malloc(sizeof *value_buf * (token.length + 1))) == NULL) {
 					fprintf(stderr, "Failed to allocate buffer for profile value.\n");
@@ -223,12 +223,7 @@ struct parser_profile* parse_profiles(
 				}
 				value_buf[i] = '\0';
 
-				if (current_key == Source) {
-					profiles[current_profile].source = value_buf;
-				}
-				else if (current_key == Destination) {
-					profiles[current_profile].destination = value_buf;
-				}
+				profiles[current_profile].source = value_buf;
 			}
 
 			follow = cursor;
@@ -244,7 +239,6 @@ struct parser_profile* parse_profiles(
 
 		current_state = new_state;
 		if (profiles[current_profile].name != NULL
-		    && profiles[current_profile].destination != NULL
 		    && profiles[current_profile].source != NULL
 		    && profiles[current_profile].type != 0) {
 			// All of the require fields have been set.
@@ -408,9 +402,6 @@ enum CurrentFileKey parse_key(struct slice string)
 
 	if (strncmp(key.start, "Source", key.length) == 0) {
 		result = Source;
-	}
-	else if (strncmp(key.start, "Destination", key.length) == 0) {
-		result = Destination;
 	}
 	else if (strncmp(key.start, "Type", key.length) == 0) {
 		result = Type;

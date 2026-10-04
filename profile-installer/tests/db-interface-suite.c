@@ -54,7 +54,6 @@ void test_it_populates_a_profile_correctly(void)
 			"version,"
 			"name,"
 			"source,"
-			"destination,"
 			"trigger_type,"
 			"status"
 		")\n"
@@ -63,7 +62,6 @@ void test_it_populates_a_profile_correctly(void)
 			"?2,"
 			"'test',"
 			"'/',"
-			"'/.snapshots',"
 			"1,"
 			"0"
 		");";
@@ -93,7 +91,6 @@ void test_it_populates_a_profile_correctly(void)
 	TEST_ASSERT_EQUAL_UINT32(1, profiles->version);
 	TEST_ASSERT_EQUAL_STRING("test", profiles->name);
 	TEST_ASSERT_EQUAL_STRING("/", profiles->source);
-	TEST_ASSERT_EQUAL_STRING("/.snapshots", profiles->destination);
 	TEST_ASSERT_EQUAL_INT(1, profiles->trigger_type);
 	TEST_ASSERT_EQUAL_INT(Active, profiles->status);
 }
@@ -107,7 +104,6 @@ void test_it_only_retrieves_the_most_recent_version(void)
 			"version,"
 			"name,"
 			"source,"
-			"destination,"
 			"trigger_type,"
 			"status"
 		")\n"
@@ -116,7 +112,6 @@ void test_it_only_retrieves_the_most_recent_version(void)
 			"?2,"
 			"'test',"
 			"'/',"
-			"'/.snapshots',"
 			"1,"
 			"0"
 		");";
@@ -157,7 +152,6 @@ void test_it_returns_profiles_sorted_by_fingerprint_ascending(void)
 			"version,"
 			"name,"
 			"source,"
-			"destination,"
 			"trigger_type,"
 			"status"
 		")\n"
@@ -166,7 +160,6 @@ void test_it_returns_profiles_sorted_by_fingerprint_ascending(void)
 			"1,"
 			"'test',"
 			"'/',"
-			"'/.snapshots',"
 			"1,"
 			"0"
 		");";
@@ -229,7 +222,6 @@ void test_it_inserts_a_new_profile_for_a_fresh_install(void)
 	profiles->fingerprint = 1;
 	profiles->name = "test";
 	profiles->source = "/";
-	profiles->destination = "/.snapshots";
 	profiles->trigger_type = 1;
 
 	// Act
@@ -241,7 +233,6 @@ void test_it_inserts_a_new_profile_for_a_fresh_install(void)
 		"version,\n"
 		"name,\n"
 		"source,\n"
-		"destination,\n"
 		"trigger_type,\n"
 		"status\n"
 		"FROM profiles WHERE fingerprint = ?1;";
@@ -262,7 +253,6 @@ void test_it_inserts_a_new_profile_for_a_fresh_install(void)
 	TEST_ASSERT_EQUAL_INT(1, actual.version);
 	TEST_ASSERT_EQUAL_STRING(profiles->name, actual.name);
 	TEST_ASSERT_EQUAL_STRING(profiles->source, actual.source);
-	TEST_ASSERT_EQUAL_STRING(profiles->destination, actual.destination);
 	TEST_ASSERT_EQUAL_INT(profiles->trigger_type, actual.trigger_type);
 	TEST_ASSERT_EQUAL_INT(Active, actual.status);
 	// We only expect a single row of data
@@ -277,19 +267,17 @@ void test_it_inserts_a_new_profile_for_an_existing_install(void)
 	profiles[0].fingerprint = 1;
 	profiles[0].name = "root";
 	profiles[0].source = "/";
-	profiles[0].destination = "/.snapshots";
 	profiles[0].trigger_type = 1;
 
 	profiles[1].fingerprint = 2;
 	profiles[1].name = "home";
 	profiles[1].source = "/home";
-	profiles[1].destination = "/.snapshots";
 	profiles[1].trigger_type = 1;
 
 	// Insert the 'root' profile as the existing profile.
 	char *init_sql =
 		"INSERT INTO profiles (\n"
-			"fingerprint, version, name, source, destination, trigger_type, status)\n"
+			"fingerprint, version, name, source, trigger_type, status)\n"
 		"VALUES\n"
 			"(1, 1, 'root', '/', '/.snapshots', 1, 0);";
 	sqlite3_exec(db, init_sql, NULL, NULL, NULL);
@@ -303,7 +291,6 @@ void test_it_inserts_a_new_profile_for_an_existing_install(void)
 		"version,\n"
 		"name,\n"
 		"source,\n"
-		"destination,\n"
 		"trigger_type,\n"
 		"status\n"
 		"FROM profiles ORDER BY fingerprint;";
@@ -323,7 +310,6 @@ void test_it_inserts_a_new_profile_for_an_existing_install(void)
 	TEST_ASSERT_EQUAL_INT(1, actual[0].version);
 	TEST_ASSERT_EQUAL_STRING(profiles[0].name, actual[0].name);
 	TEST_ASSERT_EQUAL_STRING(profiles[0].source, actual[0].source);
-	TEST_ASSERT_EQUAL_STRING(profiles[0].destination, actual[0].destination);
 	TEST_ASSERT_EQUAL_INT(profiles[0].trigger_type, actual[0].trigger_type);
 	TEST_ASSERT_EQUAL_INT(Active, actual[0].status);
 
@@ -345,7 +331,6 @@ void test_it_completes_a_profile_that_is_being_created(void)
 	profiles->fingerprint = 1;
 	profiles->name = "test";
 	profiles->source = "/";
-	profiles->destination = "/.snapshots";
 	profiles->trigger_type = 1;
 
 	// Act
@@ -435,12 +420,9 @@ bool populate_profile(struct sqlite3_stmt *statement, struct profile *profile)
 	if (populate_text(statement, 3, &profile->source) != INSTALLER_OK) {
 		return true;
 	}
-	if (populate_text(statement, 4, &profile->destination) != INSTALLER_OK) {
-		return true;
-	}
 
-	profile->trigger_type = (uint8_t) sqlite3_column_int(statement, 5);
-	profile->status = sqlite3_column_int(statement, 6);
+	profile->trigger_type = (uint8_t) sqlite3_column_int(statement, 4);
+	profile->status = sqlite3_column_int(statement, 5);
 
 	return false;
 }

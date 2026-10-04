@@ -18,7 +18,6 @@ struct profile {
 	uint32_t version;
 	char *name;
 	char *source;
-	char *destination;
 	uint8_t trigger_type;
 	enum ProfileStatus status;
 };

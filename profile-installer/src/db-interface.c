@@ -35,11 +35,11 @@ enum InstallerCode get_current_profiles(struct sqlite3 *db, struct profile **pro
 	char *sql = 
 		"WITH cte AS (\n"
 			"SELECT "
-				"fingerprint, version, name, source, destination, trigger_type, status, "
+				"fingerprint, version, name, source, trigger_type, status, "
 				"row_number() OVER (PARTITION BY fingerprint ORDER BY version DESC) AS row_number\n"
 			"FROM profiles\n"
 		")\n"
-		"SELECT fingerprint, version, name, source, destination, trigger_type, status\n"
+		"SELECT fingerprint, version, name, source, trigger_type, status\n"
 		"FROM cte\n"
 		"WHERE row_number = 1\n"
 		"ORDER BY fingerprint;";
@@ -116,19 +116,15 @@ enum InstallerCode write_profile(struct sqlite3_stmt *statement, struct profile 
 		fprintf(stderr, "write_to_profile: Failed to write profile source->\n");
 		return INSTALLER_FAIL;
 	}
-	if (write_text_field(statement, 4, &profile->destination) != INSTALLER_OK) {
-		fprintf(stderr, "write_to_profile: Failed to write profile destination->\n");
-		return INSTALLER_FAIL;
-	}
 
 	uint32_t trigger_type_val = 0;
-	if (write_int32_field(statement, 5, &trigger_type_val) != INSTALLER_OK) {
+	if (write_int32_field(statement, 4, &trigger_type_val) != INSTALLER_OK) {
 		fprintf(stderr, "write_to_profile: Failed to write profile trigger type.\n");
 		return INSTALLER_FAIL;
 	}
 	profile->trigger_type = (uint8_t) trigger_type_val;
 
-	if (write_int32_field(statement, 6, &profile->status) != INSTALLER_OK) {
+	if (write_int32_field(statement, 5, &profile->status) != INSTALLER_OK) {
 		fprintf(stderr, "write_to_profile: Failed to write profile status.\n");
 		return INSTALLER_FAIL;
 	}
@@ -225,9 +221,9 @@ enum InstallerCode create_profile(struct sqlite3 *db, struct profile *profile)
 
 	char *sql =
 		"INSERT INTO profiles (\n"
-			"fingerprint, version, name, source, destination, trigger_type, status)\n"
+			"fingerprint, version, name, source, trigger_type, status)\n"
 		"VALUES\n"
-			"(?1, ?2, ?3, ?4, ?5, ?6, ?7);";
+			"(?1, ?2, ?3, ?4, ?5, ?6);";
 	struct sqlite3_stmt *statement;
 
 	sqlite3_prepare_v2(db, sql, strlen(sql), &statement, NULL);
@@ -235,9 +231,8 @@ enum InstallerCode create_profile(struct sqlite3 *db, struct profile *profile)
 	sqlite3_bind_int(statement, 2, version);
 	sqlite3_bind_text(statement, 3, profile->name, strlen(profile->name), SQLITE_STATIC);
 	sqlite3_bind_text(statement, 4, profile->source, strlen(profile->source), SQLITE_STATIC);
-	sqlite3_bind_text(statement, 5, profile->destination, strlen(profile->destination), SQLITE_STATIC);
-	sqlite3_bind_int(statement, 6, profile->trigger_type);
-	sqlite3_bind_int(statement, 7, status);
+	sqlite3_bind_int(statement, 5, profile->trigger_type);
+	sqlite3_bind_int(statement, 6, status);
 	if (sqlite3_step(statement) != SQLITE_DONE) {
 		fprintf(stderr,
 			"create_profile: failed to insert profile with fingerprint %ld: %s\n",
