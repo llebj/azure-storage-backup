@@ -18,6 +18,7 @@ enum InstallerCode write_int32_field(struct sqlite3_stmt *statement, int col, ui
 
 enum InstallerCode bump_version(struct sqlite3 *db, struct profile current, struct profile *new);
 bool requires_bump(struct profile current, struct profile new);
+enum InstallerCode retire_version(struct sqlite3 *db, struct profile profile);
 enum InstallerCode create_profile(struct sqlite3 *db, struct profile *profile);
 
 int compare_profiles(const void *pa, const void *pb);
@@ -202,6 +203,7 @@ enum InstallerCode reconcile_profiles(struct sqlite3 *db,
 		else if (current_prof->fingerprint == new_prof->fingerprint) {
 			if (requires_bump(*current_prof, *new_prof)) {
 				bump_version(db, *current_prof, new_prof);
+				retire_version(db, *current_prof);
 			}
 			np_i++;
 			cp_i++;
@@ -260,6 +262,33 @@ bool requires_bump(struct profile current, struct profile new)
 {
 	return strcmp(current.name, new.name) != 0
 		|| current.trigger_type != new.trigger_type;
+}
+
+enum InstallerCode retire_version(struct sqlite3 *db, struct profile profile)
+{
+	enum InstallerCode result = INSTALLER_OK;
+
+	char *sql =
+		"UPDATE profiles\n"
+		"SET status = ?1\n"
+		"WHERE fingerprint = ?2\n"
+		"  AND version = ?3;";
+	struct sqlite3_stmt *stmt;
+	sqlite3_prepare_v2(db, sql, strlen(sql), &stmt, NULL);
+	sqlite3_bind_int(stmt, 1, Retired);
+	sqlite3_bind_int64(stmt, 2, profile.fingerprint);
+	sqlite3_bind_int(stmt, 3, profile.version);
+	if (sqlite3_step(stmt) != SQLITE_DONE) {
+		fprintf(stderr,
+			"retire_version: failed to retire version %d for profile with fingerprint %ld: %s\n",
+			profile.version,
+			profile.fingerprint,
+			sqlite3_errmsg(db));
+		result = INSTALLER_FAIL;
+	}
+	sqlite3_finalize(stmt);
+
+	return result;
 }
 
 enum InstallerCode create_profile(struct sqlite3 *db, struct profile *profile)
