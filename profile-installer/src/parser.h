@@ -5,11 +5,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum TriggerType {
-	Timer = 1,
-	PreInstall = 2,
-	PostInstall = 4
-};
 enum ParserState {
 	Initial = 1,
 	Intermediate = 2,

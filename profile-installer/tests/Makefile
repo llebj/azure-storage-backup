@@ -19,9 +19,9 @@ PARSER_OBJS := $(addprefix $(BUILD_DIR)/, parser-suite.o parser.o unity.o)
 
 $(BUILD_DIR)/parser-suite.out:  $(PARSER_OBJS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/parser-suite.out $(PARSER_OBJS)
-$(BUILD_DIR)/parser-suite.o: parser-suite.c ../src/parser.h $(UNITY_HEADERS) | $(BUILD_DIR)
+$(BUILD_DIR)/parser-suite.o: parser-suite.c ../src/parser.h ../src/lib.h $(UNITY_HEADERS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c parser-suite.c -o $(BUILD_DIR)/parser-suite.o
-$(BUILD_DIR)/parser.o: ../src/parser.c ../src/parser.h | $(BUILD_DIR)
+$(BUILD_DIR)/parser.o: ../src/parser.c ../src/parser.h ../src/lib.h | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c ../src/parser.c -o $(BUILD_DIR)/parser.o
 
 

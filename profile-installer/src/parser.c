@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "lib.h"
 #include "parser.h"
 
 #define PROFILES_SIZE	5

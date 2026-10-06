@@ -8,6 +8,7 @@
 #include "vendor/sqlite3/sqlite3.h"
 
 #include "db-interface.h"
+#include "lib.h"
 
 #define INITIAL_CAPACITY	4
 

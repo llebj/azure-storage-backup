@@ -18,10 +18,10 @@ $(TARGET): $(OBJS) | $(BUILD_DIR)
 $(BUILD_DIR)/main.o: main.c parser.h db-interface.h lib.h vendor/sqlite3/sqlite3.h | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c main.c -o $(BUILD_DIR)/main.o
 
-$(BUILD_DIR)/parser.o: parser.c parser.h | $(BUILD_DIR)
+$(BUILD_DIR)/parser.o: parser.c parser.h lib.h | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c parser.c -o $(BUILD_DIR)/parser.o
 
-$(BUILD_DIR)/db-interface.o: db-interface.h vendor/sqlite3/sqlite3.h | $(BUILD_DIR)
+$(BUILD_DIR)/db-interface.o: db-interface.h lib.h vendor/sqlite3/sqlite3.h | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c db-interface.c -o $(BUILD_DIR)/db-interface.o
 
 LIB_CFLAGS := $(CFLAGS) $(shell pkg-config --cflags libsystemd)

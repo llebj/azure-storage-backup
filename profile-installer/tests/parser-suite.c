@@ -5,6 +5,7 @@
 #include "vendor/unity.h"
 #include "vendor/unity_internals.h"
 
+#include "../src/lib.h"
 #include "../src/parser.h"
 
 void setUp(void)
