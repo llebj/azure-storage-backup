@@ -162,18 +162,9 @@ struct profile * map_profiles(struct parser_profile *parser_profiles, size_t cou
 		}
 		memcpy(src_buf, current_profile.source, src_buf_len);
 
-		char *dst_buf = NULL;
-		size_t dst_buf_len = sizeof *dst_buf * strlen(current_profile.destination) + 1;
-		if ((dst_buf = malloc(dst_buf_len)) == NULL) {
-			fprintf(stderr, "Failed to allocate profile source buffer.\n");
-			exit(EXIT_FAILURE);
-		}
-		memcpy(dst_buf, current_profile.destination, dst_buf_len);
-
 		profiles[current].fingerprint = hash;
 		profiles[current].name = name_buf;
 		profiles[current].source = src_buf;
-		profiles[current].destination = dst_buf;
 		profiles[current].trigger_type = current_profile.type;
 	}
 
