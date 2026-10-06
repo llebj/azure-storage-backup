@@ -30,7 +30,7 @@ DB_INTERFACE_OBJS := $(addprefix $(BUILD_DIR)/, db-interface-suite.o db-interfac
 
 $(BUILD_DIR)/db-interface-suite.out:  $(DB_INTERFACE_OBJS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/db-interface-suite.out $(DB_INTERFACE_OBJS)
-$(BUILD_DIR)/db-interface-suite.o: db-interface-suite.c $(UNITY_HEADERS) | $(BUILD_DIR)
+$(BUILD_DIR)/db-interface-suite.o: db-interface-suite.c ../src/lib.h $(UNITY_HEADERS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c db-interface-suite.c -o $(BUILD_DIR)/db-interface-suite.o
 $(BUILD_DIR)/db-interface.o: ../src/db-interface.c ../src/db-interface.h ../src/vendor/sqlite3/sqlite3.h | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c ../src/db-interface.c -o $(BUILD_DIR)/db-interface.o

@@ -15,6 +15,7 @@
 #include "vendor/unity_internals.h"
 
 #include "../src/db-interface.h"
+#include "../src/lib.h"
 
 char *schema;
 struct sqlite3 *db;

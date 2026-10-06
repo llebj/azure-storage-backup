@@ -3,14 +3,7 @@
 
 #include "./vendor/sqlite3/sqlite3.h"
 
-enum InstallerCode {
-	INSTALLER_OK = 0,
-	INSTALLER_FAIL = 1
-};
-enum ProfileStatus {
-	Active,
-	Retired
-};
+#include "lib.h"
 
 struct profile {
 	uint32_t id;
