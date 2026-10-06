@@ -551,7 +551,69 @@ void test_it_retires_a_version_that_has_been_bumped(void)
 	TEST_ASSERT_EQUAL_INT(SQLITE_DONE, done);
 }
 
-void test_it_does_not_change_a_profile_that_has_not_changed(void) { }
+void test_it_does_not_change_a_profile_that_has_not_changed(void)
+{
+	// Arrange
+	const uint64_t fingerprint = 1;
+	const uint32_t version = 1;
+	const char *name = "v1";
+	const char *source = "/";
+	const uint32_t trigger_type = 1;
+	struct profile profiles[1];
+
+	profiles[0].fingerprint = fingerprint;
+	profiles[0].name = (char *)name;
+	profiles[0].source = (char *)source;
+	profiles[0].trigger_type = trigger_type;
+
+	// Insert the 'root' profile as the existing profile.
+	char *init_sql =
+		"INSERT INTO profiles (\n"
+			"fingerprint, version, name, source, trigger_type, status)\n"
+		"VALUES\n"
+			"(?1, ?2, ?3, ?4, ?5, 0);";
+	struct sqlite3_stmt *statement;
+	sqlite3_prepare_v2(db, init_sql, strlen(init_sql), &statement, NULL);
+	sqlite3_bind_int64(statement, 1, fingerprint);
+	sqlite3_bind_int(statement, 2, version);
+	sqlite3_bind_text(statement, 3, name, strlen(name), SQLITE_STATIC);
+	sqlite3_bind_text(statement, 4, source, strlen(name), SQLITE_STATIC);
+	sqlite3_bind_int(statement, 5, trigger_type);
+	sqlite3_step(statement);
+	sqlite3_finalize(statement);
+
+	// Act
+	enum InstallerCode result = reconcile_profiles(db, profiles, sizeof(profiles) / sizeof(*profiles));
+
+	// Assert
+	char *assert_sql = "SELECT\n"
+		"fingerprint,\n"
+		"version,\n"
+		"name,\n"
+		"source,\n"
+		"trigger_type,\n"
+		"status\n"
+		"FROM profiles\n"
+		"WHERE version = ?1;";
+	struct sqlite3_stmt *assert_stmt;
+
+	struct profile actual[1] = {0};
+	sqlite3_prepare_v2(db, assert_sql, strlen(assert_sql), &assert_stmt, NULL);
+	sqlite3_bind_int(assert_stmt, 1, version);
+	int row = sqlite3_step(assert_stmt);
+	if (row != SQLITE_ROW) {
+		sqlite3_finalize(assert_stmt);
+		TEST_FAIL_MESSAGE("No rows were returned.");
+	}
+	populate_profile(assert_stmt, actual);
+	int done = sqlite3_step(assert_stmt);
+
+	TEST_ASSERT_EQUAL_INT64(fingerprint, actual->fingerprint);
+	TEST_ASSERT_EQUAL_INT(version, actual->version);
+	TEST_ASSERT_EQUAL_INT(Active, actual->status);
+	// Only a single row should exist.
+	TEST_ASSERT_EQUAL_INT(SQLITE_DONE, done);
+}
 
 // ----------
 // -- main --
@@ -579,6 +641,7 @@ int main(void)
 	RUN_TEST(test_it_creates_a_new_version_of_a_profile_when_the_trigger_type_is_changed);
 	RUN_TEST(test_it_completes_a_profile_that_is_being_bumped);
 	RUN_TEST(test_it_retires_a_version_that_has_been_bumped);
+	RUN_TEST(test_it_does_not_change_a_profile_that_has_not_changed);
 
 	return UNITY_END();
 }

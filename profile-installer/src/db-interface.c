@@ -209,7 +209,7 @@ enum InstallerCode reconcile_profiles(struct sqlite3 *db,
 			cp_i++;
 		}
 		else {
-			// We can't handle this case so we simply exit.
+			// We don't handle this case so we simply exit.
 			fprintf(stderr,
 				"reconcile_profiles: unsupported operation: cp_i = %ld, np_i = %ld\n", cp_i, np_i);
 			exit(EXIT_FAILURE);
