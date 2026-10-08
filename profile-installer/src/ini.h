@@ -18,7 +18,7 @@ enum ParserState {
 };
 
 struct slice {
-	uint8_t* start;
+	char* start;
 	size_t size;
 };
 struct ini {
