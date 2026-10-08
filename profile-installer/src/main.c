@@ -17,6 +17,7 @@
 
 #define APP_ID	SD_ID128_MAKE(e1,dc,79,91,d6,3a,45,36,09,0d,04,2a,c8,2a,50,91)
 
+enum InstallerCode read_profiles(int fd, ssize_t size, char *buf);
 struct profile * map_profiles(struct parser_profile *parser_profiles, size_t count);
 int compare_profiles(const void *pa, const void *pb);
 
@@ -44,23 +45,30 @@ int main(int argc, char **argv)
 	}
 	
 	char *fb;
-	if ((fb = malloc(sizeof *fb * sb.st_size)) == NULL) {
+	if ((fb = malloc(sizeof *fb * sb.st_size + 1)) == NULL) {
+		close(fd);
 		fprintf(stderr, "Failed to allocate file buffer.\n");
 		exit(EXIT_FAILURE);
 	}
 
-	if (read(fd, fb, sb.st_size) == -1) {
-		perror("read");
+	if (read_profiles(fd, sb.st_size, fb) != PI_OK) {
+		close(fd);
+		free(fb);
+		fprintf(stderr, "Failed to read profile contents.\n");
 		exit(EXIT_FAILURE);
-	}
+	};
 
 	size_t parser_profile_count = 0;
 	struct parser_profile *parser_profiles = parse_profiles(&parser_profile_count, fb, sb.st_size);
 	if (parser_profiles == NULL) {
+		close(fd);
+		free(fb);
 		fprintf(stderr, "Failed to parse profiles.\n");
 		exit(EXIT_FAILURE);
 	}
 	if (parser_profile_count == 0) {
+		close(fd);
+		free(fb);
 		fprintf(stdout, "No profiles defined.\n");
 		exit(EXIT_SUCCESS);
 	}
@@ -94,6 +102,25 @@ int main(int argc, char **argv)
 	}
 	
 	// reconcile_profiles
+}
+
+enum InstallerCode read_profiles(int fd, ssize_t size, char *buf)
+{
+	size_t bytes_read = 0;
+	for ( ; bytes_read < size; ) {
+		ssize_t new_bytes = read(fd, buf + bytes_read, size - bytes_read);
+		if (new_bytes < 0) {
+			break;
+		}
+		bytes_read += new_bytes;
+	}
+	if (bytes_read < size) {
+		fprintf(stderr, "read_profiles: read %ld bytes, expected %ld\n", bytes_read, size);
+		return PI_READ_FAIL;
+	}
+	buf[size] = '\0';
+
+	return PI_OK;
 }
 
 struct profile * map_profiles(struct parser_profile *parser_profiles, size_t count)

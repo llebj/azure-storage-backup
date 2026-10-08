@@ -83,7 +83,7 @@ void test_it_populates_a_profile_correctly(void)
 	enum InstallerCode result = get_current_profiles(db, &profiles, &profiles_count);
 
 	// Assert
-	TEST_ASSERT_EQUAL_INT(INSTALLER_OK, result);
+	TEST_ASSERT_EQUAL_INT(PI_OK, result);
 	TEST_ASSERT_EQUAL_size_t(1, profiles_count);
 
 	TEST_ASSERT_NOT_NULL(profiles);
@@ -138,7 +138,7 @@ void test_it_only_retrieves_the_most_recent_version(void)
 	enum InstallerCode result = get_current_profiles(db, &profiles, &profiles_count);
 
 	// Assert
-	TEST_ASSERT_EQUAL_INT(INSTALLER_OK, result);
+	TEST_ASSERT_EQUAL_INT(PI_OK, result);
 	TEST_ASSERT_EQUAL_size_t(1, profiles_count);
 	TEST_ASSERT_NOT_NULL(profiles);
 	TEST_ASSERT_EQUAL_UINT32(3, profiles->version);
@@ -185,7 +185,7 @@ void test_it_returns_profiles_sorted_by_fingerprint_ascending(void)
 	enum InstallerCode result = get_current_profiles(db, &profiles, &profiles_count);
 
 	// Assert
-	TEST_ASSERT_EQUAL_INT(INSTALLER_OK, result);
+	TEST_ASSERT_EQUAL_INT(PI_OK, result);
 	TEST_ASSERT_EQUAL_size_t(3, profiles_count);
 	TEST_ASSERT_NOT_NULL(profiles);
 	uint64_t expected[] = {1,2,3};
@@ -203,7 +203,7 @@ void test_if_no_profiles_exist_it_returns_zero_and_an_empty_pointer(void)
 	enum InstallerCode result = get_current_profiles(db, &profiles, &profiles_count);
 
 	// Assert
-	TEST_ASSERT_EQUAL_INT(INSTALLER_OK, result);
+	TEST_ASSERT_EQUAL_INT(PI_OK, result);
 	TEST_ASSERT_EQUAL_size_t(0, profiles_count);
 	TEST_ASSERT_NULL(profiles);
 }
@@ -690,10 +690,10 @@ bool populate_profile(struct sqlite3_stmt *statement, struct profile *profile)
 	profile->fingerprint = sqlite3_column_int64(statement, 0);
 	profile->version = sqlite3_column_int(statement, 1);
 
-	if (populate_text(statement, 2, &profile->name) != INSTALLER_OK) {
+	if (populate_text(statement, 2, &profile->name) != PI_OK) {
 		return true;
 	}
-	if (populate_text(statement, 3, &profile->source) != INSTALLER_OK) {
+	if (populate_text(statement, 3, &profile->source) != PI_OK) {
 		return true;
 	}
 

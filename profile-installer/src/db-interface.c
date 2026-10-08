@@ -33,7 +33,7 @@ enum InstallerCode get_current_profiles(struct sqlite3 *db, struct profile **pro
 
 	if ((result = malloc(sizeof *result * result_size)) == NULL) {
 		fprintf(stderr, "get_current_profiles: failed to allocate result buffer.\n");
-		return INSTALLER_FAIL;
+		return PI_ALLOC_FAIL;
 	}
 
 	char *sql = 
@@ -52,7 +52,7 @@ enum InstallerCode get_current_profiles(struct sqlite3 *db, struct profile **pro
 		fprintf(stderr, "get_current_profiles: failed to prepare statement: %s\n.",
 			sqlite3_errmsg(db));
 		free(result);
-		return INSTALLER_FAIL;
+		return PI_FAIL;
 	}
 
 	int step_result;
@@ -67,7 +67,7 @@ enum InstallerCode get_current_profiles(struct sqlite3 *db, struct profile **pro
 				fprintf(stderr, "get_current_profiles: failed to re-allocate result buffer.\n");
 				free(result);
 				sqlite3_finalize(statement);
-				return INSTALLER_FAIL;
+				return PI_ALLOC_FAIL;
 			}
 			result = new_ptr;
 			result_size = new_size;
@@ -81,59 +81,59 @@ enum InstallerCode get_current_profiles(struct sqlite3 *db, struct profile **pro
 			sqlite3_errmsg(db));
 		sqlite3_finalize(statement);
 		free(result);
-		return INSTALLER_FAIL;
+		return PI_FAIL;
 	}
 
 	*profiles = row_count > 0 ? result : NULL;
 	*profiles_size = row_count;
-	return INSTALLER_OK;
+	return PI_OK;
 }
 
 enum InstallerCode write_profile(struct sqlite3_stmt *statement, struct profile *profile)
 {
 	if (statement == NULL) {
 		fprintf(stderr, "write_to_profile: statement is invalid.\n");
-		return INSTALLER_FAIL;
+		return PI_FAIL;
 	}
 	if (profile == NULL) {
 		fprintf(stderr, "write_to_profile: profile is invalid.\n");
-		return INSTALLER_FAIL;
+		return PI_FAIL;
 	}
 
 	// The `id` field is the sqlite rowid column. It it not used in the application
 	// so we set it to `0` to overwrite the initial garbage value.
 	profile->id = 0;
 
-	if (write_int64_field(statement, 0, &profile->fingerprint) != INSTALLER_OK) {
+	if (write_int64_field(statement, 0, &profile->fingerprint) != PI_OK) {
 		fprintf(stderr, "write_to_profile: Failed to write profile fingerprint.\n");
-		return INSTALLER_FAIL;
+		return PI_FAIL;
 	}
-	if (write_int32_field(statement, 1, &profile->version) != INSTALLER_OK) {
+	if (write_int32_field(statement, 1, &profile->version) != PI_OK) {
 		fprintf(stderr, "write_to_profile: Failed to write profile version.\n");
-		return INSTALLER_FAIL;
+		return PI_FAIL;
 	}
-	if (write_text_field(statement, 2, &profile->name) != INSTALLER_OK) {
+	if (write_text_field(statement, 2, &profile->name) != PI_OK) {
 		fprintf(stderr, "write_to_profile: Failed to write profile name.\n");
-		return INSTALLER_FAIL;
+		return PI_FAIL;
 	}
-	if (write_text_field(statement, 3, &profile->source) != INSTALLER_OK) {
+	if (write_text_field(statement, 3, &profile->source) != PI_OK) {
 		fprintf(stderr, "write_to_profile: Failed to write profile source->\n");
-		return INSTALLER_FAIL;
+		return PI_FAIL;
 	}
 
 	uint32_t trigger_type_val = 0;
-	if (write_int32_field(statement, 4, &trigger_type_val) != INSTALLER_OK) {
+	if (write_int32_field(statement, 4, &trigger_type_val) != PI_OK) {
 		fprintf(stderr, "write_to_profile: Failed to write profile trigger type.\n");
-		return INSTALLER_FAIL;
+		return PI_FAIL;
 	}
 	profile->trigger_type = (uint8_t) trigger_type_val;
 
-	if (write_int32_field(statement, 5, &profile->status) != INSTALLER_OK) {
+	if (write_int32_field(statement, 5, &profile->status) != PI_OK) {
 		fprintf(stderr, "write_to_profile: Failed to write profile status.\n");
-		return INSTALLER_FAIL;
+		return PI_FAIL;
 	}
 
-	return INSTALLER_OK;
+	return PI_OK;
 }
 
 enum InstallerCode write_text_field(struct sqlite3_stmt *statement, int col, char **field)
@@ -144,24 +144,24 @@ enum InstallerCode write_text_field(struct sqlite3_stmt *statement, int col, cha
 	size_t buf_len = sqlite3_column_bytes(statement, col) + 1;
 	if ((buf = malloc(buf_len)) == NULL) {
 		fprintf(stderr, "get_text_value: Failed to allocate buffer for col %d.\n", col);
-		return INSTALLER_FAIL;
+		return PI_ALLOC_FAIL;
 	}
 	memcpy(buf, val, buf_len);
 	*field = buf;
 
-	return INSTALLER_OK;
+	return PI_OK;
 }
 
 enum InstallerCode write_int64_field(struct sqlite3_stmt *statement, int col, uint64_t *field)
 {
 	*field = sqlite3_column_int64(statement, col);
-	return INSTALLER_OK;
+	return PI_OK;
 }
 
 enum InstallerCode write_int32_field(struct sqlite3_stmt *statement, int col, uint32_t *field)
 {
 	*field = sqlite3_column_int(statement, col);
-	return INSTALLER_OK;
+	return PI_OK;
 }
 
 enum InstallerCode reconcile_profiles(struct sqlite3 *db,
@@ -169,10 +169,10 @@ enum InstallerCode reconcile_profiles(struct sqlite3 *db,
 {
 	struct profile *current_profiles = NULL;
 	size_t cur_prof_len = 0;
-	if (get_current_profiles(db, &current_profiles, &cur_prof_len) != INSTALLER_OK) {
+	if (get_current_profiles(db, &current_profiles, &cur_prof_len) != PI_OK) {
 		fprintf(stderr, "reconcile_profiles: failed to get current profiles.\n");
 		// TODO: free all of the profile memory.
-		return INSTALLER_FAIL;
+		return PI_FAIL;
 	}
 	// sort by fingerprints
 	qsort(new_profiles, new_prof_len, sizeof *new_profiles, &compare_profiles);
@@ -217,12 +217,12 @@ enum InstallerCode reconcile_profiles(struct sqlite3 *db,
 		}
 	}
 
-	return INSTALLER_OK;
+	return PI_OK;
 }
 
 enum InstallerCode bump_version(struct sqlite3 *db, struct profile current, struct profile *new)
 {
-	enum InstallerCode result = INSTALLER_OK;
+	enum InstallerCode result = PI_OK;
 	const uint32_t version = current.version + 1;
 	const enum ProfileStatus status = Active;
 
@@ -246,7 +246,7 @@ enum InstallerCode bump_version(struct sqlite3 *db, struct profile current, stru
 			version,
 			new->fingerprint,
 			sqlite3_errmsg(db));
-		result = INSTALLER_FAIL;
+		result = PI_FAIL;
 	}
 	sqlite3_finalize(statement);
 
@@ -267,7 +267,7 @@ bool requires_bump(struct profile current, struct profile new)
 
 enum InstallerCode retire_version(struct sqlite3 *db, struct profile profile)
 {
-	enum InstallerCode result = INSTALLER_OK;
+	enum InstallerCode result = PI_OK;
 
 	char *sql =
 		"UPDATE profiles\n"
@@ -285,7 +285,7 @@ enum InstallerCode retire_version(struct sqlite3 *db, struct profile profile)
 			profile.version,
 			profile.fingerprint,
 			sqlite3_errmsg(db));
-		result = INSTALLER_FAIL;
+		result = PI_FAIL;
 	}
 	sqlite3_finalize(stmt);
 
@@ -294,7 +294,7 @@ enum InstallerCode retire_version(struct sqlite3 *db, struct profile profile)
 
 enum InstallerCode create_profile(struct sqlite3 *db, struct profile *profile)
 {
-	enum InstallerCode result = INSTALLER_OK;
+	enum InstallerCode result = PI_OK;
 	const uint32_t version = 1;
 	const enum ProfileStatus status = Active;
 
@@ -317,7 +317,7 @@ enum InstallerCode create_profile(struct sqlite3 *db, struct profile *profile)
 			"create_profile: failed to insert profile with fingerprint %ld: %s\n",
 			profile->fingerprint,
 			sqlite3_errmsg(db));
-		result = INSTALLER_FAIL;
+		result = PI_FAIL;
 	}
 	sqlite3_finalize(statement);
 

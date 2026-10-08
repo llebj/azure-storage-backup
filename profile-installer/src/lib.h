@@ -4,8 +4,10 @@
 #include <stdint.h>
 
 enum InstallerCode {
-	INSTALLER_OK = 0,
-	INSTALLER_FAIL = 1
+	PI_OK = 0,
+	PI_FAIL = 1,
+	PI_ALLOC_FAIL = 2,
+	PI_READ_FAIL = 3
 };
 enum ProfileStatus {
 	Active,
