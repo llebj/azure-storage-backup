@@ -191,9 +191,6 @@ struct parser_profile* parse_profiles(
 					else if (strncmp(type_name.start, "postinstall", type_name.length) == 0) {
 						type |= PostInstall;
 					}
-					else if (strncmp(type_name.start, "timer", type_name.length) == 0) {
-						type |= Timer;
-					}
 					else {
 						current_state = Invalid;
 						break;

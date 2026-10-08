@@ -14,9 +14,8 @@ enum ProfileStatus {
 	Retired
 };
 enum TriggerType {
-	Timer = 1,
-	PreInstall = 2,
-	PostInstall = 4
+	PreInstall = 1,
+	PostInstall = 2
 };
 
 uint64_t poly_hash(char *string);

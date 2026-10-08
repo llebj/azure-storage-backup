@@ -35,7 +35,7 @@ void test_when_the_file_is_valid_then_return_parsed_profiles(void)
 			"\n"
 			"[Profile:home]\n"
 			"Source = /home\n"
-			"Type = timer\n"
+			"Type = postinstall\n"
 			"\n";
 	size_t input_size = 0;
 
@@ -52,7 +52,7 @@ void test_when_the_file_is_valid_then_return_parsed_profiles(void)
 
 	TEST_ASSERT_EQUAL_STRING("home", profiles[1].name);
 	TEST_ASSERT_EQUAL_STRING("/home", profiles[1].source);
-	TEST_ASSERT_BITS(Timer, Timer, profiles[1].type);
+	TEST_ASSERT_BITS(PostInstall, PostInstall, profiles[1].type);
 }
 
 void test_when_the_file_is_not_valid_then_return_empty(void)
@@ -61,7 +61,7 @@ void test_when_the_file_is_not_valid_then_return_empty(void)
 	// The header is not closed
 	char* input =	"[Profile:root\n"
 			"Source = /\n"
-			"Type = timer\n";
+			"Type = preinstall\n";
 	size_t input_size = 0;
 
 	// Act
@@ -77,7 +77,7 @@ void test_do_not_allow_invalid_header_label(void)
 	// Arrange
 	char* input =	"[Prof:root]\n"
 			"Source = /\n"
-			"Type = timer\n";
+			"Type = preinstall\n";
 	size_t input_size = 0;
 
 	// Act
@@ -93,7 +93,7 @@ void test_do_not_allow_empty_name(void)
 	// Arrange
 	char* input =	"[Profile:]\n"
 			"Source = /\n"
-			"Type = timer\n";
+			"Type = preinstall\n";
 	size_t input_size = 0;
 
 	// Act
@@ -109,7 +109,7 @@ void test_do_not_allow_empty_key(void)
 	// Arrange
 	char* input =	"[Profile:root]\n"
 			" = /\n"
-			"Type = timer\n";
+			"Type = preinstall\n";
 	size_t input_size = 0;
 
 	// Act
@@ -125,7 +125,7 @@ void test_do_not_allow_empty_value(void)
 	// Arrange
 	char* input =	"[Profile:root]\n"
 			"Source = \n"
-			"Type = timer\n";
+			"Type = preinstall\n";
 	size_t input_size = 0;
 
 	// Act
