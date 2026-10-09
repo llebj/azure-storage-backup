@@ -27,7 +27,8 @@ void test_it_parses_a_header(void)
 
 	TEST_ASSERT_EQUAL_INT(INI_OK, actual);
 	TEST_ASSERT_EQUAL_INT(1, ini.size_section);
-	TEST_ASSERT_EQUAL_STRING("Header", ini.sections->header);
+	struct slice header = ini.sections->header;
+	TEST_ASSERT_EQUAL_MEMORY("Header", header.start, header.size);
 }
 
 void test_it_parses_a_header_with_a_tag(void) { }
@@ -37,6 +38,8 @@ void test_it_parses_a_header_with_an_attribute(void) { }
 void test_it_parses_multiple_headers(void) { }
 
 void test_it_requires_a_header(void) { }
+
+void test_it_does_not_allow_empty_header(void) { }
 
 void test_it_does_not_allow_empty_tag(void) { }
 

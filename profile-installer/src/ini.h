@@ -26,13 +26,13 @@ struct ini {
 	struct section *sections;
 };
 struct section {
-	struct slice* header;
-	struct slice* tag;
+	struct slice header;
+	struct slice tag;
 	struct attribute* attributes;
  };
  struct attribute {
-	struct slice* key;
-	struct slice* value;
+	struct slice key;
+	struct slice value;
 };
 
 uint8_t parse_ini(struct slice *buf, struct ini *ini);
