@@ -1,7 +1,8 @@
-State,[,],=,\n,default
-Initial,ParsingHeader,Invalid,Invalid,self-loop,Invalid
-Intermediate,ParsingHeader,Invalid,Invalid,self-loop,ParsingKey
-ParsingHeader,Invalid,ParsedHeader,Invalid,Invalid,self-loop
-ParsedHeader,Invalid,Invalid,Invalid,Intermediate,self-loop
-ParsingKey,Invalid,Invalid,ParsingValue,Invalid,self-loop
-ParsingValue,Invalid,Invalid,Invalid,Intermediate,self-loop
+State,[,],=,\n,:,default
+Initial,ParsingHeader,Invalid,Invalid,self-loop,Invalid,Invalid
+Intermediate,ParsingHeader,Invalid,Invalid,self-loop,ParsingKey,ParsingKey
+ParsingHeader,Invalid,ParsedHeader,Invalid,Invalid,ParsingTag,self-loop
+ParsingTag,Invalid,ParsedHeader,Invalid,Invalid,Invalid,self-loop
+ParsedHeader,Invalid,Invalid,Invalid,Intermediate,self-loop,self-loop
+ParsingKey,Invalid,Invalid,ParsingValue,Invalid,self-loop,self-loop
+ParsingValue,Invalid,Invalid,Invalid,Intermediate,self-loop,self-loop

@@ -111,6 +111,9 @@ enum ParserState transition(enum ParserState current_state, char input)
 		case ']':
 			new_state = ParsedHeader;
 			break;
+		case ':':
+			new_state = ParsingTag;
+			break;
 		case '[':
 		case '=':
 		case '\n':
@@ -120,6 +123,19 @@ enum ParserState transition(enum ParserState current_state, char input)
 			break;
 		}
 		break;
+	case ParsingTag:
+		switch (input) {
+		case ']':
+			new_state = ParsedHeader;
+			break;
+		case '[':
+		case '=':
+		case '\n':
+			new_state = Invalid;
+			break;
+		default:
+			break;
+		}
 	case ParsedHeader:
 		switch (input) {
 		case '[':

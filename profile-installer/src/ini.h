@@ -11,10 +11,11 @@ enum ParserState {
 	Initial = 1,
 	Intermediate = 2,
 	ParsingHeader = 4,
-	ParsedHeader = 8,
-	ParsingKey = 16,
-	ParsingValue = 32,
-	Invalid = 64
+	ParsingTag = 8,
+	ParsedHeader = 16,
+	ParsingKey = 32,
+	ParsingValue = 64,
+	Invalid = 128
 };
 
 struct slice {
