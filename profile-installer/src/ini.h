@@ -25,11 +25,13 @@ struct slice {
 struct ini {
 	size_t size_section;
 	struct section *sections;
+	struct attribute *attributes;
 };
 struct section {
 	struct slice header;
 	struct slice tag;
-	struct attribute* attributes;
+	size_t attribs_size;
+	size_t attribs_offset;
  };
  struct attribute {
 	struct slice key;
