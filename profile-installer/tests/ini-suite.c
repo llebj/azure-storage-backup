@@ -14,45 +14,7 @@ void tearDown(void)
 {
 }
 
-void test_it_parses_a_header(void)
-{
-	char *input = "[Header]";
-	struct slice buf = {
-		.start = input,
-		.size = strlen(input)
-	};
-	struct ini ini = {0};
-
-	uint8_t actual = parse_ini(&buf, &ini);
-
-	TEST_ASSERT_EQUAL_INT(INI_OK, actual);
-	TEST_ASSERT_EQUAL_INT(1, ini.size_section);
-	struct slice header = ini.sections->header;
-	TEST_ASSERT_EQUAL_MEMORY("Header", header.start, header.size);
-}
-
-void test_it_parses_a_header_with_a_tag(void)
-{
-	char *input = "[Header:tag]";
-	struct slice buf = {
-		.start = input,
-		.size = strlen(input)
-	};
-	struct ini ini = {0};
-
-	uint8_t actual = parse_ini(&buf, &ini);
-
-	TEST_ASSERT_EQUAL_INT(INI_OK, actual);
-	TEST_ASSERT_EQUAL_INT(1, ini.size_section);
-
-	struct slice header = ini.sections->header;
-	TEST_ASSERT_EQUAL_MEMORY("Header", header.start, header.size);
-
-	struct slice tag = ini.sections->tag;
-	TEST_ASSERT_EQUAL_MEMORY("tag", tag.start, tag.size);
-}
-
-void test_it_parses_a_header_with_attributes(void)
+void test_it_parses_a_section_with_multiple_attributes(void)
 {
 	char *input = "[Header]\n"
 		      "Key One = Value One\n"
@@ -132,6 +94,27 @@ void test_it_parses_multiple_sections(void)
 	TEST_ASSERT_EQUAL_MEMORY("Value Two", attribute_two.value.start, attribute_two.value.size);
 }
 
+void test_it_parses_a_header_with_a_tag(void)
+{
+	char *input = "[Header:tag]";
+	struct slice buf = {
+		.start = input,
+		.size = strlen(input)
+	};
+	struct ini ini = {0};
+
+	uint8_t actual = parse_ini(&buf, &ini);
+
+	TEST_ASSERT_EQUAL_INT(INI_OK, actual);
+	TEST_ASSERT_EQUAL_INT(1, ini.size_section);
+
+	struct slice header = ini.sections->header;
+	TEST_ASSERT_EQUAL_MEMORY("Header", header.start, header.size);
+
+	struct slice tag = ini.sections->tag;
+	TEST_ASSERT_EQUAL_MEMORY("tag", tag.start, tag.size);
+}
+
 void test_it_requires_a_header(void) { }
 
 void test_it_does_not_allow_empty_header(void) { }
@@ -151,10 +134,10 @@ int main(void)
 {
 	UNITY_BEGIN();
 
-	RUN_TEST(test_it_parses_a_header);
-	RUN_TEST(test_it_parses_a_header_with_a_tag);
-	RUN_TEST(test_it_parses_a_header_with_attributes);
+	RUN_TEST(test_it_parses_a_section_with_multiple_attributes);
 	RUN_TEST(test_it_parses_multiple_sections);
+	RUN_TEST(test_it_parses_a_header_with_a_tag);
 
 	return UNITY_END();
 }
+

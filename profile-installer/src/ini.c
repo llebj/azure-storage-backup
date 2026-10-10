@@ -10,26 +10,52 @@
 
 #define SIZE_BUF	4
 
-enum ParserState transition(enum ParserState current_state, char input);
+enum ParserState {
+	Initial = 1,
+	Intermediate = 2,
+	ParsingHeader = 4,
+	ParsingTag = 8,
+	ParsedHeader = 16,
+	ParsingKey = 32,
+	ParsingValue = 64,
+	Invalid = 128
+};
+
+struct state {
+	enum ParserState current;
+	enum ParserState previous;
+};
+struct scanner {
+	struct slice source;
+	size_t cursor;
+	size_t mark;
+};
+
+uint8_t next_transition(char input, struct state *parser);
+struct slice scanner_take(struct scanner *scanner);
 struct slice trim(struct slice string);
 
 uint8_t parse_ini(struct slice *buf, struct ini *ini)
 {
 	// TODO: check if inputs are NULL
 
+	struct state state = {
+		.current = Initial,
+		.previous = Initial,
+	};
+	struct scanner scanner = {
+		.source = *buf,
+		.cursor = 0,
+		.mark = 0
+	};
+
 	ini->sections = NULL;
 	ini->size_section = 0;
 
-	enum ParserState current_state = Initial;
-	size_t cursor = 0,
-	       follow = 0;
-
+	size_t section_i = 0,
+	       attribute_i = 0;
 	struct section *sections = NULL;
-	size_t current_section = 0,
-	       sections_size = 0;
-
 	struct attribute *attributes = NULL;
-	size_t current_attribute = 0;
 
 	// TODO: Handle re-allocation
 	if ((sections = malloc(sizeof *sections * SIZE_BUF)) == NULL) {
@@ -41,11 +67,9 @@ uint8_t parse_ini(struct slice *buf, struct ini *ini)
 		return PI_ALLOC_FAIL;
 	}
 
-	for ( ; cursor < buf->size; ++cursor) {
-		enum ParserState new_state = transition(current_state, buf->start[cursor]);
-		uint8_t transition = current_state | new_state;
-
-		if (current_state == new_state) {
+	for ( ; scanner.cursor < scanner.source.size; ++scanner.cursor) {
+		uint8_t transition = next_transition(scanner.source.start[scanner.cursor], &state);
+		if (transition == 0) {
 			continue;
 		}
 
@@ -57,131 +81,103 @@ uint8_t parse_ini(struct slice *buf, struct ini *ini)
 		switch (transition) {
 		case Initial | ParsingHeader:
 		case Intermediate | ParsingHeader:
-			if (current_state == Intermediate) {
-				++current_section;
+			if (state.previous == Intermediate) {
+				++section_i;
 			}
-			sections[current_section].attribs_offset = current_attribute;
-			follow = cursor;
+			sections[section_i].attribs_offset = attribute_i;
+			scanner_take(&scanner);
 			break;
 		case Intermediate | ParsingKey:
 			// Do we need to do some validation here?
-			follow = cursor;
+			scanner_take(&scanner);
 			break;
 		case ParsingHeader | ParsedHeader:
 		case ParsingHeader | ParsingTag:
 		{
-			// Move follow off of the starting char and start reading the token
-			++follow;
-
-			sections[current_section].header.start = buf->start + follow;
-			sections[current_section].header.size = cursor - follow;
-
-			follow = cursor;
-			++sections_size;
+			// Move start off of the starting char and start reading the token
+			++scanner.mark;
+			sections[section_i].header = scanner_take(&scanner);
 			break;
 		}
 		case ParsingTag | ParsedHeader:
 		{
-			// Move follow off of the starting char and start reading the token
-			++follow;
-
-			sections[current_section].tag.start = buf->start + follow;
-			sections[current_section].tag.size = cursor - follow;
-
-			follow = cursor;
+			// Move start off of the starting char and start reading the token
+			++scanner.mark;
+			sections[section_i].tag = scanner_take(&scanner);
 			break;
 		}
 		case ParsingKey | ParsingValue:
 		{
-			struct slice token = {
-				.start = buf->start + follow,
-				.size = cursor - follow
-			};
-			token = trim(token);
-
-			attributes[current_attribute].key.start = token.start;
-			attributes[current_attribute].key.size = token.size;
-
-			follow = cursor;
+			attributes[attribute_i].key = trim(scanner_take(&scanner));
 			break;
 		}
 		case ParsingValue | Intermediate:
-			// Move follow off of '='
-			++follow;
+			// Move start off of '='
+			++scanner.mark;
 
-			struct slice token = {
-				.start = buf->start + follow,
-				.size = cursor - follow
-			};
-			token = trim(token);
-
-			attributes[current_attribute].value.start = token.start;
-			attributes[current_attribute].value.size = token.size;
-			sections[current_section].attribs_size = ++current_attribute - sections[current_section].attribs_offset;
-
-			follow = cursor;
+			attributes[attribute_i].value = trim(scanner_take(&scanner));
+			sections[section_i].attribs_size = ++attribute_i - sections[section_i].attribs_offset;
 			break;
 		default:
 			break;
 		}
-
-		current_state = new_state;
 	}
 
 	ini->sections = sections;
-	ini->size_section = sections_size;
+	ini->size_section = section_i + 1;
 	ini->attributes = attributes;
 
 	return INI_OK;
 }
 
-// Determine the new state based on the current state and the input
-enum ParserState transition(enum ParserState current_state, char input)
+// Determine the next state based on the current state and the input
+uint8_t next_transition(char input, struct state *parser)
 {
-	enum ParserState new_state = current_state;
-	switch (current_state) {
+	enum ParserState next = parser->current;
+
+	switch (parser->current) {
 	case Initial:
 		switch (input) {
 		case '[':
-			new_state = ParsingHeader;
+			next = ParsingHeader;
 			break;
 		case '\n':
 			break;
 		case ']':
 		case '=':
 		default:
-			new_state = Invalid;
+			next = Invalid;
 			break;
 		}
 		break;
 	case Intermediate:
 		switch (input) {
 		case '[':
-			new_state = ParsingHeader;
+			next = ParsingHeader;
 			break;
 		case '\n':
 			break;
 		case ']':
 		case '=':
-			new_state = Invalid;
+			next = Invalid;
 			break;
 		default:
-			new_state = ParsingKey;
+			next = ParsingKey;
 			break;
 		}
 		break;
 	case ParsingHeader:
 		switch (input) {
 		case ']':
-			new_state = ParsedHeader;
+			next = ParsedHeader;
 			break;
 		case ':':
-			new_state = ParsingTag;
+			next = ParsingTag;
 			break;
 		case '[':
 		case '=':
 		case '\n':
-			new_state = Invalid;
+			next = Invalid;
 			break;
 		default:
 			break;
@@ -190,13 +186,13 @@ enum ParserState transition(enum ParserState current_state, char input)
 	case ParsingTag:
 		switch (input) {
 		case ']':
-			new_state = ParsedHeader;
+			next = ParsedHeader;
 			break;
 		case ':':
 		case '[':
 		case '=':
 		case '\n':
-			new_state = Invalid;
+			next = Invalid;
 			break;
 		default:
 			break;
@@ -207,10 +203,10 @@ enum ParserState transition(enum ParserState current_state, char input)
 		case '[':
 		case ']':
 		case '=':
-			new_state = Invalid;
+			next = Invalid;
 			break;
 		case '\n':
-			new_state = Intermediate;
+			next = Intermediate;
 			break;
 		default:
 			break;
@@ -221,10 +217,10 @@ enum ParserState transition(enum ParserState current_state, char input)
 		case '[':
 		case ']':
 		case '\n':
-			new_state = Invalid;
+			next = Invalid;
 			break;
 		case '=':
-			new_state = ParsingValue;
+			next = ParsingValue;
 			break;
 		default:
 			break;
@@ -235,10 +231,10 @@ enum ParserState transition(enum ParserState current_state, char input)
 		case '[':
 		case ']':
 		case '=':
-			new_state = Invalid;
+			next = Invalid;
 			break;
 		case '\n':
-			new_state = Intermediate;
+			next = Intermediate;
 			break;
 		default:
 			break;
@@ -247,39 +243,28 @@ enum ParserState transition(enum ParserState current_state, char input)
 	default:
 		break;
 	}
-	return new_state;
+
+	parser->previous = parser->current;
+	parser->current = next;
+
+	return parser->previous ^ parser->current;
+}
+
+struct slice scanner_take(struct scanner *scanner)
+{
+	struct slice token = {
+		.start = scanner->source.start + scanner->mark,
+		.size = scanner->cursor - scanner->mark
+	};
+	scanner->mark = scanner->cursor;
+
+	return token;
 }
 
 struct slice trim(struct slice string)
 {
-	struct slice result = {
-		.start = NULL,
-		.size = 0
-	};
-	if (string.size == 0) {
-		return result;
-	}
+	for ( ; string.size > 0 && isspace((unsigned char)string.start[0]); ++string.start, --string.size) {}
+	for ( ; string.size > 0 && isspace((unsigned char)string.start[string.size -1]); --string.size) {}
 
-	size_t i = 0,
-	       j = string.size - 1;
-	for (; i <= j; ) {
-		// We exhaustively trim from the start first instead of trimming
-		// from the start and end concurrently to prevent underflow of `j`.
-		if (isspace(string.start[i])) {
-			++i;
-		}
-		else if (isspace(string.start[j])) {
-			--j;
-		}
-		else {
-			// Neither `i`, nor `j` were moved, therefore we have
-			// finished trimming.
-			break;
-		}
-	}
-	if (i <= j) {
-		result.start = &string.start[i];
-		result.size = j - i + 1;
-	}
-	return result;
+	return string;
 }
