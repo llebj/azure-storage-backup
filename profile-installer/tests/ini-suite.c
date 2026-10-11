@@ -96,7 +96,7 @@ void test_it_parses_multiple_sections(void)
 
 void test_it_parses_a_header_with_a_tag(void)
 {
-	char *input = "[Header:tag]";
+	char *input = "[Header:tag]\n";
 	struct slice buf = {
 		.start = input,
 		.size = strlen(input)
@@ -115,15 +115,111 @@ void test_it_parses_a_header_with_a_tag(void)
 	TEST_ASSERT_EQUAL_MEMORY("tag", tag.start, tag.size);
 }
 
-void test_it_requires_a_header(void) { }
+void test_it_requires_a_header(void)
+{
+	char *input = "\n"
+		      "Key = Value\n";
+	struct slice buf = {
+		.start = input,
+		.size = strlen(input)
+	};
+	struct ini ini = {0};
 
-void test_it_does_not_allow_empty_header(void) { }
+	uint8_t actual = parse_ini(&buf, &ini);
 
-void test_it_does_not_allow_empty_tag(void) { }
+	TEST_ASSERT_EQUAL_INT(INI_FAIL, actual);
+	TEST_ASSERT_EQUAL_INT(0, ini.size_section);
+	TEST_ASSERT_NULL(ini.sections);
+	TEST_ASSERT_NULL(ini.attributes);
+}
 
-void test_it_does_not_allow_empty_key(void) { }
+void test_it_does_not_allow_empty_header(void)
+{
+	char *input = "[   ]\n";
+	struct slice buf = {
+		.start = input,
+		.size = strlen(input)
+	};
+	struct ini ini = {0};
 
-void test_it_does_not_allow_empty_value(void) { }
+	uint8_t actual = parse_ini(&buf, &ini);
+
+	TEST_ASSERT_EQUAL_INT(INI_FAIL, actual);
+	TEST_ASSERT_EQUAL_INT(0, ini.size_section);
+	TEST_ASSERT_NULL(ini.sections);
+	TEST_ASSERT_NULL(ini.attributes);
+}
+
+void test_it_does_not_allow_empty_tag(void)
+{
+	char *input = "[Header:   ]\n";
+	struct slice buf = {
+		.start = input,
+		.size = strlen(input)
+	};
+	struct ini ini = {0};
+
+	uint8_t actual = parse_ini(&buf, &ini);
+
+	TEST_ASSERT_EQUAL_INT(INI_FAIL, actual);
+	TEST_ASSERT_EQUAL_INT(0, ini.size_section);
+	TEST_ASSERT_NULL(ini.sections);
+	TEST_ASSERT_NULL(ini.attributes);
+}
+
+void test_it_does_not_allow_empty_key(void)
+{
+	char *input = "[Header]\n"
+		      " = Value\n";
+	struct slice buf = {
+		.start = input,
+		.size = strlen(input)
+	};
+	struct ini ini = {0};
+
+	uint8_t actual = parse_ini(&buf, &ini);
+
+	TEST_ASSERT_EQUAL_INT(INI_FAIL, actual);
+	TEST_ASSERT_EQUAL_INT(0, ini.size_section);
+	TEST_ASSERT_NULL(ini.sections);
+	TEST_ASSERT_NULL(ini.attributes);
+}
+
+void test_it_does_not_allow_empty_value(void)
+{
+	char *input = "[Header]\n"
+		      "Key = \n";
+	struct slice buf = {
+		.start = input,
+		.size = strlen(input)
+	};
+	struct ini ini = {0};
+
+	uint8_t actual = parse_ini(&buf, &ini);
+
+	TEST_ASSERT_EQUAL_INT(INI_FAIL, actual);
+	TEST_ASSERT_EQUAL_INT(0, ini.size_section);
+	TEST_ASSERT_NULL(ini.sections);
+	TEST_ASSERT_NULL(ini.attributes);
+}
+
+void test_it_requires_a_properly_terminated_file(void)
+{
+	char *input = "[Header]\n"
+		      "Key = Value";
+	struct slice buf = {
+		.start = input,
+		.size = strlen(input)
+	};
+	struct ini ini = {0};
+
+	uint8_t actual = parse_ini(&buf, &ini);
+
+	TEST_ASSERT_EQUAL_INT(INI_FAIL, actual);
+	TEST_ASSERT_EQUAL_INT(0, ini.size_section);
+	TEST_ASSERT_NULL(ini.sections);
+	TEST_ASSERT_NULL(ini.attributes);
+}
 
 // The next two tests should force a re-allocation
 void test_it_can_process_a_large_number_of_sections(void) { }
@@ -137,6 +233,12 @@ int main(void)
 	RUN_TEST(test_it_parses_a_section_with_multiple_attributes);
 	RUN_TEST(test_it_parses_multiple_sections);
 	RUN_TEST(test_it_parses_a_header_with_a_tag);
+	RUN_TEST(test_it_requires_a_header);
+	RUN_TEST(test_it_does_not_allow_empty_header);
+	RUN_TEST(test_it_does_not_allow_empty_tag);
+	RUN_TEST(test_it_does_not_allow_empty_key);
+	RUN_TEST(test_it_does_not_allow_empty_value);
+	RUN_TEST(test_it_requires_a_properly_terminated_file);
 
 	return UNITY_END();
 }

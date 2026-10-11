@@ -25,13 +25,24 @@ struct state {
 	enum ParserState current;
 	enum ParserState previous;
 };
+struct position {
+	size_t line;
+	size_t character;
+};
+struct token {
+	struct slice value;
+	struct position position;
+};
 struct scanner {
 	struct slice source;
 	size_t cursor;
 	size_t mark;
+	struct position current_position;
+	struct token last_token;
 };
 
 uint8_t next_transition(char input, struct state *parser);
+void scanner_step(struct scanner *scanner);
 struct slice scanner_take(struct scanner *scanner);
 struct slice trim(struct slice string);
 
@@ -46,11 +57,24 @@ uint8_t parse_ini(struct slice *buf, struct ini *ini)
 	struct scanner scanner = {
 		.source = *buf,
 		.cursor = 0,
-		.mark = 0
+		.mark = 0,
+		.current_position = (struct position) {
+			.line = 1,
+			.character = 1
+		},
+		.last_token = (struct token) {
+			.value = {0},
+			.position = (struct position) {
+				.line = 1,
+				.character = 1
+			}
+		}
 	};
+	bool invalid_token = false;
 
-	ini->sections = NULL;
 	ini->size_section = 0;
+	ini->sections = NULL;
+	ini->attributes = NULL;
 
 	size_t section_i = 0,
 	       attribute_i = 0;
@@ -60,6 +84,7 @@ uint8_t parse_ini(struct slice *buf, struct ini *ini)
 	// TODO: Handle re-allocation
 	if ((sections = malloc(sizeof *sections * SIZE_BUF)) == NULL) {
 		fprintf(stderr, "parse_ini: failed to allocate buffer for sections.\n");
+		// TODO: Incorrect response type.
 		return PI_ALLOC_FAIL;
 	}
 	if ((attributes = malloc(sizeof *attributes * SIZE_BUF)) == NULL) {
@@ -67,8 +92,11 @@ uint8_t parse_ini(struct slice *buf, struct ini *ini)
 		return PI_ALLOC_FAIL;
 	}
 
-	for ( ; scanner.cursor < scanner.source.size; ++scanner.cursor) {
+	for ( ; scanner.cursor < scanner.source.size; scanner_step(&scanner)) {
 		uint8_t transition = next_transition(scanner.source.start[scanner.cursor], &state);
+		if (state.current == Invalid) {
+			break;
+		}
 		if (transition == 0) {
 			continue;
 		}
@@ -96,19 +124,31 @@ uint8_t parse_ini(struct slice *buf, struct ini *ini)
 		{
 			// Move start off of the starting char and start reading the token
 			++scanner.mark;
-			sections[section_i].header = scanner_take(&scanner);
+			sections[section_i].header = trim(scanner_take(&scanner));
+			if (sections[section_i].header.size == 0) {
+				invalid_token = true;
+				break;
+			}
 			break;
 		}
 		case ParsingTag | ParsedHeader:
 		{
 			// Move start off of the starting char and start reading the token
 			++scanner.mark;
-			sections[section_i].tag = scanner_take(&scanner);
+			sections[section_i].tag = trim(scanner_take(&scanner));
+			if (sections[section_i].tag.size == 0) {
+				invalid_token = true;
+				break;
+			}
 			break;
 		}
 		case ParsingKey | ParsingValue:
 		{
 			attributes[attribute_i].key = trim(scanner_take(&scanner));
+			if (attributes[attribute_i].key.size == 0) {
+				invalid_token = true;
+				break;
+			}
 			break;
 		}
 		case ParsingValue | Intermediate:
@@ -116,15 +156,34 @@ uint8_t parse_ini(struct slice *buf, struct ini *ini)
 			++scanner.mark;
 
 			attributes[attribute_i].value = trim(scanner_take(&scanner));
+			if (attributes[attribute_i].value.size == 0) {
+				invalid_token = true;
+				break;
+			}
 			sections[section_i].attribs_size = ++attribute_i - sections[section_i].attribs_offset;
 			break;
 		default:
 			break;
 		}
+
+		if (invalid_token) {
+			// TODO: Store this as a retrievable messages to avoid polluting
+			//       output during testing.
+			fprintf(stderr, "parser_ini: token starting at %ld:%ld is invalid.\n",
+					scanner.last_token.position.line, scanner.last_token.position.character);
+			break;
+		}
 	}
 
-	ini->sections = sections;
+	// Requiring `Intermediate` is essentially requiring the file to end with `\n`.
+	// This is not ideal, but it simplifies the implementation as we don't have to
+	// process the final token when we exit the loop if this condition wasn't imposed.
+	if (state.current != Intermediate || invalid_token) {
+		return INI_FAIL;
+	}
+
 	ini->size_section = section_i + 1;
+	ini->sections = sections;
 	ini->attributes = attributes;
 
 	return INI_OK;
@@ -250,11 +309,31 @@ uint8_t next_transition(char input, struct state *parser)
 	return parser->previous ^ parser->current;
 }
 
+void scanner_step(struct scanner *scanner)
+{
+	bool eol = scanner->source.start[scanner->cursor++] == '\n';
+	if (eol) {
+		++scanner->current_position.line;
+		scanner->current_position.character = 1;
+	}
+	else {
+		++scanner->current_position.character;
+	}
+}
+
 struct slice scanner_take(struct scanner *scanner)
 {
 	struct slice token = {
 		.start = scanner->source.start + scanner->mark,
 		.size = scanner->cursor - scanner->mark
+	};
+
+	scanner->last_token = (struct token) {
+		.value = token,
+		.position = (struct position) {
+			.line = scanner->current_position.line,
+			.character = scanner->current_position.character - (scanner->cursor - scanner->mark)
+		}
 	};
 	scanner->mark = scanner->cursor;
 
