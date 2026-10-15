@@ -8,8 +8,6 @@
 #include "ini.h"
 #include "lib.h"
 
-#define SIZE_BUF	4
-
 enum ParserState {
 	Initial = 1,
 	Intermediate = 2,
@@ -45,11 +43,13 @@ uint8_t next_transition(char input, struct state *parser);
 void scanner_step(struct scanner *scanner);
 struct slice scanner_take(struct scanner *scanner);
 struct slice trim(struct slice string);
+void * ensure_space(size_t i, size_t elem_size, void *p, size_t *size);
 
-uint8_t parse_ini(struct slice *buf, struct ini *ini)
+enum InstallerCode parse_ini(struct slice *buf, struct ini *ini)
 {
 	// TODO: check if inputs are NULL
 
+	enum InstallerCode result = PI_OK;
 	struct state state = {
 		.current = Initial,
 		.previous = Initial,
@@ -77,14 +77,14 @@ uint8_t parse_ini(struct slice *buf, struct ini *ini)
 	ini->attributes = NULL;
 
 	size_t section_i = 0,
-	       attribute_i = 0;
+	       sections_size = SIZE_BUF,
+	       attribute_i = 0,
+	       attributes_size = SIZE_BUF;
 	struct section *sections = NULL;
 	struct attribute *attributes = NULL;
 
-	// TODO: Handle re-allocation
 	if ((sections = malloc(sizeof *sections * SIZE_BUF)) == NULL) {
 		fprintf(stderr, "parse_ini: failed to allocate buffer for sections.\n");
-		// TODO: Incorrect response type.
 		return PI_ALLOC_FAIL;
 	}
 	if ((attributes = malloc(sizeof *attributes * SIZE_BUF)) == NULL) {
@@ -111,6 +111,12 @@ uint8_t parse_ini(struct slice *buf, struct ini *ini)
 		case Intermediate | ParsingHeader:
 			if (state.previous == Intermediate) {
 				++section_i;
+				struct section *tmp = ensure_space(section_i, sizeof *sections, sections, &sections_size);
+				if (tmp == NULL) {
+					result = PI_ALLOC_FAIL;
+					break;
+				}
+				sections = tmp;
 			}
 			sections[section_i].attribs_offset = attribute_i;
 			scanner_take(&scanner);
@@ -144,6 +150,12 @@ uint8_t parse_ini(struct slice *buf, struct ini *ini)
 		}
 		case ParsingKey | ParsingValue:
 		{
+			struct attribute *tmp = ensure_space(attribute_i, sizeof *attributes, attributes, &attributes_size);
+			if (tmp == NULL) {
+				result = PI_ALLOC_FAIL;
+				break;
+			}
+			attributes = tmp;
 			attributes[attribute_i].key = trim(scanner_take(&scanner));
 			if (attributes[attribute_i].key.size == 0) {
 				invalid_token = true;
@@ -173,20 +185,27 @@ uint8_t parse_ini(struct slice *buf, struct ini *ini)
 					scanner.last_token.position.line, scanner.last_token.position.character);
 			break;
 		}
+		if (result != PI_OK) {
+			fprintf(stderr, "parser_ini: failed to parse file: %d\n", result);
+			break;
+		}
 	}
 
 	// Requiring `Intermediate` is essentially requiring the file to end with `\n`.
 	// This is not ideal, but it simplifies the implementation as we don't have to
 	// process the final token when we exit the loop if this condition wasn't imposed.
 	if (state.current != Intermediate || invalid_token) {
-		return INI_FAIL;
+		return PI_PARSE_FAIL;
+	}
+	else if (result != PI_OK) {
+		return result;
 	}
 
 	ini->size_section = section_i + 1;
 	ini->sections = sections;
 	ini->attributes = attributes;
 
-	return INI_OK;
+	return PI_OK;
 }
 
 // Determine the next state based on the current state and the input
@@ -332,6 +351,8 @@ struct slice scanner_take(struct scanner *scanner)
 		.value = token,
 		.position = (struct position) {
 			.line = scanner->current_position.line,
+			// This breaks when the previous token is on another line
+			// TODO: Fix broken last token calc
 			.character = scanner->current_position.character - (scanner->cursor - scanner->mark)
 		}
 	};
@@ -346,4 +367,22 @@ struct slice trim(struct slice string)
 	for ( ; string.size > 0 && isspace((unsigned char)string.start[string.size -1]); --string.size) {}
 
 	return string;
+}
+
+void * ensure_space(size_t i, size_t elem_size, void *p, size_t *current_size)
+{
+	size_t new_size = *current_size;
+	for ( ; i >= new_size; ) {
+		new_size = new_size > 0 ? new_size * 2 : SIZE_BUF;
+	}
+	if (new_size == *current_size) {
+		return p;
+	}
+
+	void *new_p = realloc(p, elem_size * new_size);
+	if (new_p == NULL) {
+		return NULL;
+	}
+	*current_size = new_size;
+	return new_p;
 }
