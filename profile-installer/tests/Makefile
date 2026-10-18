@@ -7,25 +7,11 @@ UNITY_HEADERS := vendor/unity.h vendor/unity_internals.h
 
 .PHONY: all test clean
 
-all: $(BUILD_DIR)/ini-suite.out $(BUILD_DIR)/parser-suite.out $(BUILD_DIR)/db-interface-suite.out $(BUILD_DIR)/lib-suite.out
+all: $(BUILD_DIR)/parser-suite.out $(BUILD_DIR)/db-interface-suite.out $(BUILD_DIR)/lib-suite.out
 
 # --- shared ---
 $(BUILD_DIR)/unity.o: vendor/unity.c $(UNITY_HEADERS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c vendor/unity.c -o $(BUILD_DIR)/unity.o
-$(BUILD_DIR)/lib.o: ../src/lib.c ../src/lib.h | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c ../src/lib.c -o $(BUILD_DIR)/lib.o
-
-
-# --- ini suite ---
-INI_OBJS := $(addprefix $(BUILD_DIR)/, ini-suite.o ini.o unity.o)
-
-$(BUILD_DIR)/ini-suite.out:  $(INI_OBJS) | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -o $(BUILD_DIR)/ini-suite.out $(INI_OBJS)
-$(BUILD_DIR)/ini-suite.o: ini-suite.c ../src/ini.h $(UNITY_HEADERS) | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c ini-suite.c -o $(BUILD_DIR)/ini-suite.o
-$(BUILD_DIR)/ini.o: ../src/ini.c ../src/ini.h | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c ../src/ini.c -o $(BUILD_DIR)/ini.o
-
 
 
 # --- parser suite ---
@@ -59,6 +45,8 @@ $(BUILD_DIR)/lib-suite.out:  $(LIB_OBJS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/lib-suite.out $(LIB_OBJS)
 $(BUILD_DIR)/lib-suite.o: lib-suite.c ../src/lib.h $(UNITY_HEADERS) 
 	$(CC) $(CFLAGS) -c lib-suite.c -o $(BUILD_DIR)/lib-suite.o
+$(BUILD_DIR)/lib.o: ../src/lib.c ../src/lib.h | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c ../src/lib.c -o $(BUILD_DIR)/lib.o
 
 
 # -----------------
@@ -69,7 +57,6 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 test:
-	$(BUILD_DIR)/ini-suite.out
 	$(BUILD_DIR)/parser-suite.out
 	$(BUILD_DIR)/db-interface-suite.out
 	$(BUILD_DIR)/lib-suite.out

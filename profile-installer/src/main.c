@@ -11,7 +11,6 @@
 #include <systemd/sd-id128.h>
 
 #include "db-interface.h"
-#include "ini.h"
 #include "lib.h"
 #include "parser.h"
 #include "vendor/sqlite3/sqlite3.h"
@@ -82,6 +81,7 @@ int main(int argc, char **argv)
 	if (parse_profiles(&ini, file_profiles) != PI_OK) {
 
 		close(fd);
+		free(file_profiles);
 		free(ini.attributes);
 		free(ini.sections);
 		free(fb);

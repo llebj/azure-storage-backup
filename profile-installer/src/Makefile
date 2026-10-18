@@ -5,7 +5,7 @@ LDLIBS := $(shell pkg-config --libs libsystemd)
 
 BUILD_DIR := build
 OUT := main.out
-OBJS := $(addprefix $(BUILD_DIR)/, lib.o parser.o db-interface.o ini.o sqlite3.o main.o)
+OBJS := $(addprefix $(BUILD_DIR)/, lib.o parser.o db-interface.o sqlite3.o main.o)
 TARGET := $(addprefix $(BUILD_DIR)/, $(OUT))
 
 .PHONY: all clean
@@ -15,7 +15,7 @@ all: $(TARGET)
 $(TARGET): $(OBJS) | $(BUILD_DIR)
 	$(CC) -o $(TARGET) $(OBJS) $(LDLIBS)
 
-$(BUILD_DIR)/main.o: main.c parser.h db-interface.h lib.h ini.h vendor/sqlite3/sqlite3.h | $(BUILD_DIR)
+$(BUILD_DIR)/main.o: main.c parser.h db-interface.h lib.h vendor/sqlite3/sqlite3.h | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c main.c -o $(BUILD_DIR)/main.o
 
 $(BUILD_DIR)/parser.o: parser.c parser.h lib.h | $(BUILD_DIR)
@@ -23,9 +23,6 @@ $(BUILD_DIR)/parser.o: parser.c parser.h lib.h | $(BUILD_DIR)
 
 $(BUILD_DIR)/db-interface.o: db-interface.h lib.h vendor/sqlite3/sqlite3.h | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c db-interface.c -o $(BUILD_DIR)/db-interface.o
-
-$(BUILD_DIR)/ini.o: ini.h lib.h vendor/sqlite3/sqlite3.h | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c ini.c -o $(BUILD_DIR)/ini.o
 
 
 LIB_CFLAGS := $(CFLAGS) $(shell pkg-config --cflags libsystemd)

@@ -4,7 +4,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "ini.h"
 #include "lib.h"
 #include "parser.h"
 
