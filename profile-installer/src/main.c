@@ -11,6 +11,7 @@
 #include <systemd/sd-id128.h>
 
 #include "db-interface.h"
+#include "ini.h"
 #include "lib.h"
 #include "parser.h"
 #include "vendor/sqlite3/sqlite3.h"
@@ -18,8 +19,7 @@
 #define APP_ID	SD_ID128_MAKE(e1,dc,79,91,d6,3a,45,36,09,0d,04,2a,c8,2a,50,91)
 
 enum InstallerCode read_profiles(int fd, ssize_t size, char *buf);
-struct profile * map_profiles(struct parser_profile *parser_profiles, size_t count);
-int compare_profiles(const void *pa, const void *pb);
+struct profile * map_profiles(struct file_profile *file_profiles, size_t count);
 
 int main(int argc, char **argv)
 {
@@ -58,19 +58,35 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	};
 
-	size_t parser_profile_count = 0;
-	struct parser_profile *parser_profiles = parse_profiles(&parser_profile_count, fb, sb.st_size);
-	if (parser_profiles == NULL) {
+	struct ini ini;
+	struct slice fb_slice = {
+		.start = fb,
+		.size = sb.st_size
+	};
+	if (parse_ini(&fb_slice, &ini) != PI_OK) {
 		close(fd);
+		free(fb);
+		fprintf(stderr, "Failed to parse file to INI.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	struct file_profile *file_profiles;
+	if ((file_profiles = malloc(sizeof *file_profiles * ini.size_section)) == NULL) {
+		close(fd);
+		free(ini.attributes);
+		free(ini.sections);
+		free(fb);
+		fprintf(stderr, "Failed to allocate file profiles buffer.\n");
+		exit(EXIT_FAILURE);
+	}
+	if (parse_profiles(&ini, file_profiles) != PI_OK) {
+
+		close(fd);
+		free(ini.attributes);
+		free(ini.sections);
 		free(fb);
 		fprintf(stderr, "Failed to parse profiles.\n");
 		exit(EXIT_FAILURE);
-	}
-	if (parser_profile_count == 0) {
-		close(fd);
-		free(fb);
-		fprintf(stdout, "No profiles defined.\n");
-		exit(EXIT_SUCCESS);
 	}
 
 	// how do we uniquely identify a profile?
@@ -87,7 +103,7 @@ int main(int argc, char **argv)
 
 
 	// compute fingerprints for all new profiles
-	struct profile *new_profiles = map_profiles(parser_profiles, parser_profile_count);
+	struct profile *new_profiles = map_profiles(file_profiles, ini.size_section);
 	if (new_profiles == NULL) {
 		fprintf(stderr, "Failed to map profiles.\n");
 		exit(EXIT_SUCCESS);
@@ -123,9 +139,9 @@ enum InstallerCode read_profiles(int fd, ssize_t size, char *buf)
 	return PI_OK;
 }
 
-struct profile * map_profiles(struct parser_profile *parser_profiles, size_t count)
+struct profile * map_profiles(struct file_profile *file_profiles, size_t count)
 {
-	if (parser_profiles == NULL) {
+	if (file_profiles == NULL) {
 		return NULL;
 	}
 
@@ -137,7 +153,7 @@ struct profile * map_profiles(struct parser_profile *parser_profiles, size_t cou
 
 	size_t max_source = 0;
 	for (size_t i = 0; i < count; ++i) {
-		size_t current_len = strlen(parser_profiles[i].source);
+		size_t current_len = strlen(file_profiles[i].source);
 		if (current_len > max_source) {
 			max_source = current_len;
 		}
@@ -163,7 +179,7 @@ struct profile * map_profiles(struct parser_profile *parser_profiles, size_t cou
 	memcpy(hash_buf, machine_id, SD_ID128_STRING_MAX);
 
 	for (size_t current = 0; current < count; ++current) {
-		struct parser_profile current_profile = parser_profiles[current];
+		struct file_profile current_profile = file_profiles[current];
 		int src_len = strlen(current_profile.source);
 
 		size_t hash_source_len = SD_ID128_STRING_MAX + src_len;

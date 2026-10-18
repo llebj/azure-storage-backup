@@ -9,9 +9,11 @@ UNITY_HEADERS := vendor/unity.h vendor/unity_internals.h
 
 all: $(BUILD_DIR)/ini-suite.out $(BUILD_DIR)/parser-suite.out $(BUILD_DIR)/db-interface-suite.out $(BUILD_DIR)/lib-suite.out
 
-# --- shared by all test suites ---
+# --- shared ---
 $(BUILD_DIR)/unity.o: vendor/unity.c $(UNITY_HEADERS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c vendor/unity.c -o $(BUILD_DIR)/unity.o
+$(BUILD_DIR)/lib.o: ../src/lib.c ../src/lib.h | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c ../src/lib.c -o $(BUILD_DIR)/lib.o
 
 
 # --- ini suite ---
@@ -57,8 +59,6 @@ $(BUILD_DIR)/lib-suite.out:  $(LIB_OBJS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/lib-suite.out $(LIB_OBJS)
 $(BUILD_DIR)/lib-suite.o: lib-suite.c ../src/lib.h $(UNITY_HEADERS) 
 	$(CC) $(CFLAGS) -c lib-suite.c -o $(BUILD_DIR)/lib-suite.o
-$(BUILD_DIR)/lib.o: ../src/lib.c ../src/lib.h | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c ../src/lib.c -o $(BUILD_DIR)/lib.o
 
 
 # -----------------

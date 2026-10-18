@@ -31,36 +31,23 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum ParserState {
-	Initial = 1,
-	Intermediate = 2,
-	ParsingHeader = 4,
-	ParsedHeader = 8,
-	ParsingKey = 16,
-	ParsingValue = 32,
-	Invalid = 64
-};
+#include "ini.h"
+#include "lib.h"
+
 enum CurrentFileKey {
 	None,
 	Source,
 	Type
 };
 
-struct slice {
-	char* start;
-	size_t length;
-};
-struct parser_profile {
+struct file_profile {
 	char* name;
 	char* source;
 	uint8_t type;
 };
 
-
-bool count_profiles(size_t *count, char *buf, size_t buf_size);
-struct parser_profile* parse_profiles(
-		size_t *profiles_size,
-		char *buf, size_t buf_size);
-enum ParserState transition(enum ParserState current, char input);
+enum InstallerCode parse_profiles(
+		struct ini *ini,
+		struct file_profile *profiles);
 
 #endif

@@ -322,16 +322,16 @@ int main(void)
 {
 	UNITY_BEGIN();
 
-	//RUN_TEST(test_it_parses_a_section_with_multiple_attributes);
-	//RUN_TEST(test_it_parses_multiple_sections);
-	//RUN_TEST(test_it_parses_a_header_with_a_tag);
-	//RUN_TEST(test_it_requires_a_header);
-	//RUN_TEST(test_it_does_not_allow_empty_header);
-	//RUN_TEST(test_it_does_not_allow_empty_tag);
-	//RUN_TEST(test_it_does_not_allow_empty_key);
-	//RUN_TEST(test_it_does_not_allow_empty_value);
-	//RUN_TEST(test_it_requires_a_properly_terminated_file);
-	//RUN_TEST(test_it_can_process_a_large_number_of_sections);
+	RUN_TEST(test_it_parses_a_section_with_multiple_attributes);
+	RUN_TEST(test_it_parses_multiple_sections);
+	RUN_TEST(test_it_parses_a_header_with_a_tag);
+	RUN_TEST(test_it_requires_a_header);
+	RUN_TEST(test_it_does_not_allow_empty_header);
+	RUN_TEST(test_it_does_not_allow_empty_tag);
+	RUN_TEST(test_it_does_not_allow_empty_key);
+	RUN_TEST(test_it_does_not_allow_empty_value);
+	RUN_TEST(test_it_requires_a_properly_terminated_file);
+	RUN_TEST(test_it_can_process_a_large_number_of_sections);
 	RUN_TEST(test_it_can_process_a_large_number_of_attributes);
 
 	return UNITY_END();

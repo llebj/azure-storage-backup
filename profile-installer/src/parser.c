@@ -1,409 +1,127 @@
-#include <ctype.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+#include <stdlib.h>
 
+#include "ini.h"
 #include "lib.h"
 #include "parser.h"
 
-#define PROFILES_SIZE	5
+enum CurrentFileKey get_key(struct slice string);
+bool parse_type(struct slice string, uint8_t *type);
+char * string_from(struct slice slice);
 
-const char* profile_header = "Profile";
-
-struct slice trim(struct slice string);
-enum CurrentFileKey parse_key(struct slice string);
-
-struct parser_profile* parse_profiles(
-		size_t *profiles_size,
-		char *buf, size_t buf_size)
+enum InstallerCode parse_profiles(
+		struct ini *ini,
+		struct file_profile *profiles)
 {
-	struct parser_profile *profiles = NULL;
-	uint64_t current_profile = 0;
-
-	enum ParserState current_state = Initial;
-	enum CurrentFileKey current_key = None;
-	size_t cursor = 0,
-	       follow = 0;
-
-	// TODO: Handle re-allocating profiles if needed
-	if ((profiles = malloc(sizeof *profiles * PROFILES_SIZE)) == NULL) {
-		fprintf(stderr, "Failed to allocate buffer for profiles.\n");
-		*profiles_size = 0;
-		return profiles;
+	if (ini == NULL || profiles == NULL) {
+		return PI_FAIL;
 	}
 
-	// TODO: Handle iterating through the profiles.
-
-	// the outer loop performs the state validation pass
-	for ( ; cursor < buf_size; ++cursor) {
-		enum ParserState new_state = transition(current_state, buf[cursor]);
-		if (new_state == Invalid) {
-			current_state = Invalid;
-			break;
+	for (size_t s_i = 0; s_i < ini->size_section; ++s_i) {
+		struct section current_section = ini->sections[s_i];
+		if (strncmp("Profile", current_section.header.start, current_section.header.size) != 0) {
+			return PI_PARSE_FAIL;
 		}
 
-		if (current_state == new_state) {
+		profiles[s_i] = (struct file_profile) {0};
+		profiles[s_i].name = string_from(current_section.tag);
+		for (size_t a_i = 0; a_i < current_section.attribs_size; ++a_i) {
+			struct attribute current_attribute = ini->attributes[current_section.attribs_offset + a_i];
+			enum CurrentFileKey key = get_key(current_attribute.key);
+			switch (key) {
+				case Source:
+				{
+					profiles[s_i].source = string_from(current_attribute.value);
+					break;
+				}
+				case Type:
+				{
+					uint8_t type = 0;
+					profiles[s_i].type = parse_type(current_attribute.value, &type) ? 
+						type : 0;
+					break;
+				}
+				default:
+				{
+					break;
+				}
+			}
+		}
+
+		if (profiles[s_i].name == NULL || profiles[s_i].source == NULL || profiles[s_i].type == 0) {
+			return PI_PARSE_FAIL;
+		}
+	}
+
+	return PI_OK;
+}
+
+bool parse_type(struct slice string, uint8_t *type)
+{
+	uint8_t value = 0;
+	bool result = true;
+	// `head` is exclusive when used to build the slice
+	// so we need to iterate up to the token size.
+	for (size_t head = 0, tail = 0; head <= string.size; ++head) {
+		// WARN: Check size before reading from string.
+		if (head < string.size && string.start[head] != ',') {
 			continue;
 		}
 
-		uint8_t transition = current_state | new_state;
-		// The action to take can be determined purely on the transition.
-		// Each case represents a trasition arranged as `current_state | new_state`.
-		// WARN: OR'd states works in this case because there are no bi-directional
-		//       edges in the state-transition graph. If that property ever changes
-		//       then this will have to be revisited.
-		switch (transition) {
-		case Initial | ParsingHeader:
-		case Intermediate | ParsingHeader:
-		case Intermediate | ParsingKey:
-			// Do we need to do some validation here?
-			follow = cursor;
-			break;
-		case ParsingHeader | ParsedHeader:
-		{
-			// Move follow off of '[' and start reading the name
-			++follow;
-			// Try to establish the span containing the header label
-			size_t start = follow;
-			for ( ; follow < cursor; ++follow) {
-				if (buf[follow] == ':') {
-					break;
-				}
-				continue;
-			}
-
-			// Validate the header label to ensure that it is a profile
-			bool no_colon = follow == cursor;
-			bool incorrect_length = (follow - start) != strlen(profile_header);
-			bool incorrect_content = strncmp(
-						&buf[start],
-						profile_header,
-						strlen(profile_header)) != 0;
-			if (no_colon || incorrect_length || incorrect_content) {
-				current_state = Invalid;
-				break;
-			}
-
-			// Move follow off of ':' and start reading the name
-			++follow;
-			// Validate that the profile name has positive length before
-			// allocating any memory.
-			if (follow >= cursor) {
-				current_state = Invalid;
-				break;
-			}
-
-			struct slice name = {
-				.start = &buf[follow],
-				.length = cursor - follow
-			};
-			name = trim(name);
-			if (name.length == 0) {
-				current_state = Invalid;
-				break;
-			}
-
-			char *name_buf;
-			if ((name_buf = malloc(sizeof *name_buf * (name.length + 1))) == NULL) {
-				fprintf(stderr, "Failed to allocate buffer for profile name.\n");
-				// The file isn't invalid.
-				// TODO: Handle this error properly
-				current_state = Invalid;
-				break;
-			}
-
-			size_t i = 0;
-			for ( ; i < name.length; ++i) {
-				name_buf[i] = name.start[i];
-			}
-			name_buf[i] = '\0';
-
-			profiles[current_profile].name = name_buf;
-			follow = cursor;
-			break;
-		}
-		case ParsedHeader | Intermediate:
-		{
-			// Move follow off of ']'
-			++follow;
-			struct slice name = {
-				.start = &buf[follow],
-				.length = cursor - follow
-			};
-			name = trim(name);
-			if (name.length != 0) {
-				current_state = Invalid;
-			}
-			break;
-		}
-		case ParsingKey | ParsingValue:
-		{
-			struct slice token = {
-				.start = &buf[follow],
-				.length = cursor - follow
-			};
-			current_key = parse_key(token);
-			if (current_key == None) {
-				current_state = Invalid;
-			}
-			follow = cursor;
-			break;
-		}
-		case ParsingValue | Intermediate:
-		{
-			// Move follow off of '='
-			++follow;
-			struct slice token = {
-				.start = &buf[follow],
-				.length = cursor - follow
-			};
-			token = trim(token);
-			if (token.length == 0) {
-				current_state = Invalid;
-				break;
-			}
-
-			if (current_key == Type) {
-				uint8_t type = 0;
-				// `head` is exclusive when used to build the slice
-				// so we need to iterate up to the token length.
-				for (size_t head = 0, tail = 0; head <= token.length; ++head) {
-					// WARN: Check length before reading from token.
-					if (head < token.length && token.start[head] != ',') {
-						continue;
-					}
-
-					struct slice type_name = {
-						.start = token.start + tail,
-						.length = head - tail
-					};
-					if (type_name.length == 0) {
-						current_state = Invalid;
-						break;
-					}
-
-					if (strncmp(type_name.start, "preinstall", type_name.length) == 0) {
-						type |= PreInstall;
-					}
-					else if (strncmp(type_name.start, "postinstall", type_name.length) == 0) {
-						type |= PostInstall;
-					}
-					else {
-						current_state = Invalid;
-						break;
-					}
-
-					// `i` is currently pointing at ',' so move to the next char
-					tail = head + 1;
-				}
-
-				if (current_state == Invalid) {
-					break;
-				}
-				profiles[current_profile].type = type;
-			}
-			else if (current_key == Source) {
-				char *value_buf;
-				if ((value_buf = malloc(sizeof *value_buf * (token.length + 1))) == NULL) {
-					fprintf(stderr, "Failed to allocate buffer for profile value.\n");
-					// The file isn't invalid.
-					// TODO: Handle this error properly
-					current_state = Invalid;
-					break;
-				}
-
-				size_t i = 0;
-				for ( ; i < token.length; ++i) {
-					value_buf[i] = token.start[i];
-				}
-				value_buf[i] = '\0';
-
-				profiles[current_profile].source = value_buf;
-			}
-
-			follow = cursor;
-			break;
-		}
-		default:
+		struct slice type_name = {
+			.start = string.start + tail,
+			.size = head - tail
+		};
+		if (type_name.size == 0) {
+			result = false;
 			break;
 		}
 
-		if (current_state == Invalid) {
-			break;
+		if (strncmp(type_name.start, "preinstall", type_name.size) == 0) {
+			value |= PreInstall;
 		}
-
-		current_state = new_state;
-		if (profiles[current_profile].name != NULL
-		    && profiles[current_profile].source != NULL
-		    && profiles[current_profile].type != 0) {
-			// All of the require fields have been set.
-			// Probably need a better way of determining when we have
-			// finished parsing a single profile.
-			++current_profile;
-		}
-		if (current_profile >= PROFILES_SIZE) {
-			// TODO: Implement re-allocation of profiles buffer.
-			fprintf(stderr, "Overran profiles buffer.\n");
-			exit(EXIT_FAILURE);
-		}
-	}
-
-	if (current_state == Invalid) {
-		profiles_size = 0;
-		return NULL;
-	}
-	*profiles_size = current_profile;
-	return profiles;
-}
-
-// Determine the new state based on the current state and the input
-enum ParserState transition(enum ParserState current_state, char input)
-{
-	enum ParserState new_state = current_state;
-	switch (current_state) {
-	case Initial:
-		switch (input) {
-		case '[':
-			new_state = ParsingHeader;
-			break;
-		case '\n':
-			break;
-		case ']':
-		case '=':
-		default:
-			new_state = Invalid;
-			break;
-		}
-		break;
-	case Intermediate:
-		switch (input) {
-		case '[':
-			new_state = ParsingHeader;
-			break;
-		case '\n':
-			break;
-		case ']':
-		case '=':
-			new_state = Invalid;
-			break;
-		default:
-			new_state = ParsingKey;
-			break;
-		}
-		break;
-	case ParsingHeader:
-		switch (input) {
-		case ']':
-			new_state = ParsedHeader;
-			break;
-		case '[':
-		case '=':
-		case '\n':
-			new_state = Invalid;
-			break;
-		default:
-			break;
-		}
-		break;
-	case ParsedHeader:
-		switch (input) {
-		case '[':
-		case ']':
-		case '=':
-			new_state = Invalid;
-			break;
-		case '\n':
-			new_state = Intermediate;
-			break;
-		default:
-			break;
-		}
-		break;
-	case ParsingKey:
-		switch (input) {
-		case '[':
-		case ']':
-		case '\n':
-			new_state = Invalid;
-			break;
-		case '=':
-			new_state = ParsingValue;
-			break;
-		default:
-			break;
-		}
-		break;
-	case ParsingValue:
-		switch (input) {
-		case '[':
-		case ']':
-		case '=':
-			new_state = Invalid;
-			break;
-		case '\n':
-			new_state = Intermediate;
-			break;
-		default:
-			break;
-		}
-		break;
-	default:
-		break;
-	}
-	return new_state;
-}
-
-struct slice trim(struct slice string)
-{
-	struct slice result = {
-		.start = NULL,
-		.length = 0
-	};
-	if (string.length == 0) {
-		return result;
-	}
-
-	size_t i = 0,
-	       j = string.length - 1;
-	for (; i <= j; ) {
-		// We exhaustively trim from the start first instead of trimming
-		// from the start and end concurrently to prevent underflow of `j`.
-		if (isspace(string.start[i])) {
-			++i;
-		}
-		else if (isspace(string.start[j])) {
-			--j;
+		else if (strncmp(type_name.start, "postinstall", type_name.size) == 0) {
+			value |= PostInstall;
 		}
 		else {
-			// Neither `i`, nor `j` were moved, therefore we have
-			// finished trimming.
+			result = false;
 			break;
 		}
+
+		// `i` is currently pointing at ',' so move to the next char
+		tail = head + 1;
 	}
-	if (i <= j) {
-		result.start = &string.start[i];
-		result.length = j - i + 1;
+	if (result) {
+		*type = value;
 	}
+
 	return result;
 }
 
-enum CurrentFileKey parse_key(struct slice string)
+enum CurrentFileKey get_key(struct slice string)
 {
 	enum CurrentFileKey result = None;
-	struct slice key = trim(string);
-	if (key.length == 0) {
-		return result;
-	}
-
-	if (strncmp(key.start, "Source", key.length) == 0) {
+	if (strncmp(string.start, "Source", string.size) == 0) {
 		result = Source;
 	}
-	else if (strncmp(key.start, "Type", key.length) == 0) {
+	else if (strncmp(string.start, "Type", string.size) == 0) {
 		result = Type;
 	}
+
+	return result;
+}
+
+char * string_from(struct slice slice)
+{
+	char * result = NULL;
+	if (slice.size == 0 || (result = malloc(slice.size + 1)) == NULL) {
+		return NULL;
+	}
+	memcpy(result, slice.start, slice.size);
+	result[slice.size] = '\0';
 
 	return result;
 }
