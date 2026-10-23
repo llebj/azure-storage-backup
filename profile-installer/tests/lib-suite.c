@@ -407,6 +407,40 @@ void test_it_extracts_a_substitution_token_from_a_multi_type_string(void)
 	TEST_ASSERT_EQUAL_MEMORY(expected, result.start, result.size);
 }
 
+void test_it_treats_single_braces_literally(void)
+{
+	// Arrange
+	char *in = "Simple { } string";
+	size_t len = strlen(in);
+
+	// Act
+	struct slice result = next_token(in, len);
+
+	// Assert
+	TEST_ASSERT_EQUAL_INT(len, result.size);
+	TEST_ASSERT_EQUAL_MEMORY(in, result.start, result.size);
+}
+
+void test_it_does_not_include_an_ambibuous_single_brace(void)
+{
+	// Arrange
+	char *expected = "Simple ";
+	char *end = "{";
+	size_t expected_len = strlen(expected);
+	size_t end_len = strlen(end);
+	size_t len = expected_len + end_len;
+
+	char in[len + 1];
+	snprintf(in, len + 1, "%s%s", expected, end);
+
+	// Act
+	struct slice result = next_token(in, len);
+
+	// Assert
+	TEST_ASSERT_EQUAL_INT(expected_len, result.size);
+	TEST_ASSERT_EQUAL_MEMORY(expected, result.start, result.size);
+}
+
 // -----------------
 // -- END SECTION --
 // -----------------
@@ -416,23 +450,25 @@ int main(void)
 {
 	UNITY_BEGIN();
 
-	//RUN_TEST(test_it_correctly_hashes_a_basic_string);
+	RUN_TEST(test_it_correctly_hashes_a_basic_string);
 
-	//RUN_TEST(test_it_parses_a_section_with_multiple_attributes);
-	//RUN_TEST(test_it_parses_multiple_sections);
-	//RUN_TEST(test_it_parses_a_header_with_a_tag);
-	//RUN_TEST(test_it_requires_a_header);
-	//RUN_TEST(test_it_does_not_allow_empty_header);
-	//RUN_TEST(test_it_does_not_allow_empty_tag);
-	//RUN_TEST(test_it_does_not_allow_empty_key);
-	//RUN_TEST(test_it_does_not_allow_empty_value);
-	//RUN_TEST(test_it_requires_a_properly_terminated_file);
-	//RUN_TEST(test_it_can_process_a_large_number_of_sections);
-	//RUN_TEST(test_it_can_process_a_large_number_of_attributes);
+	RUN_TEST(test_it_parses_a_section_with_multiple_attributes);
+	RUN_TEST(test_it_parses_multiple_sections);
+	RUN_TEST(test_it_parses_a_header_with_a_tag);
+	RUN_TEST(test_it_requires_a_header);
+	RUN_TEST(test_it_does_not_allow_empty_header);
+	RUN_TEST(test_it_does_not_allow_empty_tag);
+	RUN_TEST(test_it_does_not_allow_empty_key);
+	RUN_TEST(test_it_does_not_allow_empty_value);
+	RUN_TEST(test_it_requires_a_properly_terminated_file);
+	RUN_TEST(test_it_can_process_a_large_number_of_sections);
+	RUN_TEST(test_it_can_process_a_large_number_of_attributes);
 
-	//RUN_TEST(test_it_returns_a_simple_token_in_full);
-	//RUN_TEST(test_it_extracts_a_simple_token_from_a_multi_type_string);
+	RUN_TEST(test_it_returns_a_simple_token_in_full);
+	RUN_TEST(test_it_extracts_a_simple_token_from_a_multi_type_string);
 	RUN_TEST(test_it_extracts_a_substitution_token_from_a_multi_type_string);
+	RUN_TEST(test_it_treats_single_braces_literally);
+	RUN_TEST(test_it_does_not_include_an_ambibuous_single_brace);
 
 	return UNITY_END();
 }

@@ -458,7 +458,6 @@ struct slice next_token(char *in, size_t size)
 
 	for ( ; i < size; ++i) {
 		uint16_t transition = next_sub_transition(state, in[i]);
-		// TODO: Handle transition
 		switch (transition) {
 		case Opening << 8 | None:
 		{
@@ -475,8 +474,9 @@ struct slice next_token(char *in, size_t size)
 		}
 	}
 
-	if (state == Open && tmp != in) {
-		// Needed to look ahead to find the second '{'
+	if (state == Open && tmp != in || state == Opening) {
+		// Needed to look ahead to find the second '{', or read an
+		// ambiguous '{' as the final character in the buffer
 		result.size = i - 1;
 	}
 	else if (state == Closed) {
@@ -512,6 +512,8 @@ uint16_t next_sub_transition(enum SubState current, char c)
 		case '{':
 			next = Open;
 			break;
+		case '}':
+			next = None;
 		default:
 			break;
 		}
