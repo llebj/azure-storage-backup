@@ -8,6 +8,10 @@
 
 #include "lib.h"
 
+// ---------------------
+// -- SECTION hashing --
+// ---------------------
+
 #define ALPHA	256
 #define PRIME	1610612741
 
@@ -36,6 +40,14 @@ uint64_t poly_hash(char *string)
 	}
 	return hash;
 }
+
+// -----------------
+// -- END SECTION --
+// -----------------
+
+// -----------------
+// -- SECTION ini --
+// -----------------
 
 enum ParserState {
 	Initial = 1,
@@ -415,3 +427,132 @@ void * ensure_space(size_t i, size_t elem_size, void *p, size_t *current_size)
 	*current_size = new_size;
 	return new_p;
 }
+
+// -----------------
+// -- END SECTION --
+// -----------------
+
+// --------------------------
+// -- SECTION substitution --
+// --------------------------
+
+enum SubState {
+	None	= 1,
+	Opening	= 2,
+	Open	= 4,
+	Closing	= 8,
+	Closed	= 16
+};
+
+uint16_t next_sub_transition(enum SubState current, char c);
+
+struct slice next_token(char *in, size_t size)
+{
+	struct slice result = {
+		.start = in,
+		.size = 0
+	};
+	char *tmp = in;
+	enum SubState state = None;
+	size_t i = 0;
+
+	for ( ; i < size; ++i) {
+		uint16_t transition = next_sub_transition(state, in[i]);
+		// TODO: Handle transition
+		switch (transition) {
+		case Opening << 8 | None:
+		{
+			tmp = in + i;
+			break;
+		}
+		default:
+			break;
+		}
+
+		state = (transition & 0xff00) >> 8;
+		if (state == Open && tmp != in || state == Closed) {
+			break;
+		}
+	}
+
+	if (state == Open && tmp != in) {
+		// Needed to look ahead to find the second '{'
+		result.size = i - 1;
+	}
+	else if (state == Closed) {
+		// Terminated on the second '}', which must be included
+		result.size = i + 1;
+	}
+	else {
+		// Read to the end of the buffer
+		result.size = i;
+	}
+
+	return result;
+}
+
+uint16_t next_sub_transition(enum SubState current, char c)
+{
+	enum SubState next = current;
+	switch (current) {
+	case None:
+	{
+		switch (c) {
+		case '{':
+			next = Opening;
+			break;
+		default:
+			break;
+		}
+		break;
+	}
+	case Opening:
+	{
+		switch (c) {
+		case '{':
+			next = Open;
+			break;
+		default:
+			break;
+		}
+		break;
+	}
+	case Open:
+	{
+		switch (c) {
+		case '}':
+			next = Closing;
+			break;
+		default:
+			break;
+		}
+		break;
+	}
+	case Closing:
+	{
+		switch (c) {
+		case '}':
+			next = Closed;
+			break;
+		default:
+			break;
+		}
+		break;
+	}
+	default:
+		break;
+	}
+
+	// Packing both states into a single number uniquely identifies a transition.
+	return next << 8 | current;
+}
+
+enum InstallerCode substitute(char *in, char *out, size_t size)
+{
+	return PI_OK;
+}
+
+// -----------------
+// -- END SECTION --
+// -----------------
+

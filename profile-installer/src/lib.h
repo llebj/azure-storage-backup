@@ -42,8 +42,15 @@ struct section {
 	struct slice value;
 };
 
+struct sub {
+	struct slice token;
+	struct slice replacement;
+};
+
 enum InstallerCode parse_ini(struct slice *buf, struct ini *ini);
 
 uint64_t poly_hash(char *string);
+
+struct slice next_token(char *in, size_t size);
 
 #endif
