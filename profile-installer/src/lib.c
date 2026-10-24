@@ -436,6 +436,8 @@ void * ensure_space(size_t i, size_t elem_size, void *p, size_t *current_size)
 // -- SECTION substitution --
 // --------------------------
 
+#define EMPTY_SLICE	(struct slice) {0}
+
 enum SubState {
 	None	= 1,
 	Opening	= 2,
@@ -444,67 +446,76 @@ enum SubState {
 	Closed	= 16
 };
 
-uint16_t next_sub_transition(enum SubState current, char c);
+struct sub_transition {
+	enum SubState current;
+	enum SubState previous;
+};
+
+struct sub_transition sub_next_transition(struct sub_transition transition, char c);
 
 struct slice next_token(char *in, size_t size)
 {
-	struct slice result = {
-		.start = in,
-		.size = 0
+	struct sub_transition state = {
+		.current = None,
+		.previous = None
 	};
-	char *tmp = in;
-	enum SubState state = None;
+	bool is_sub_token = false;
 	size_t i = 0;
 
 	for ( ; i < size; ++i) {
-		uint16_t transition = next_sub_transition(state, in[i]);
-		switch (transition) {
-		case Opening << 8 | None:
+		state = sub_next_transition(state, in[i]);
+		switch (state.current) {
+		case Opening:
 		{
-			tmp = in + i;
+			is_sub_token = i == 0;
 			break;
 		}
 		default:
 			break;
 		}
 
-		state = (transition & 0xff00) >> 8;
-		if (state == Open && tmp != in || state == Closed) {
+		if (state.current == Open && !is_sub_token 
+				|| state.current == Closed) {
 			break;
 		}
 	}
 
-	if (state == Open && tmp != in || state == Opening) {
+	if ((state.current == Closing || state.current == Open) && i == size) {
+		// Reached the end of the buffer inside of a substitution token
+		// so we cannot return an incomplete token
+		return EMPTY_SLICE;
+	}
+
+	struct slice result = {
+		.start = in,
+		.size = 0
+	};
+	if (state.current == Closed) {
+		// Terminated on the second '}', which must be included
+		result.size = i + 1;
+	}
+	else if (state.current == Open && !is_sub_token || state.current == Opening) {
 		// Needed to look ahead to find the second '{', or read an
 		// ambiguous '{' as the final character in the buffer
 		result.size = i - 1;
 	}
-	else if (state == Closed) {
-		// Terminated on the second '}', which must be included
-		result.size = i + 1;
-	}
-	else if (state != Open && state != Closing) {
+	else {
 		// Read to the end of the buffer
 		result.size = i;
-	}
-	else {
-		// Reached the end of the buffer inside of a substitution token
-		// so we cannot return an incomplete token
-		result.start = NULL;
 	}
 
 	return result;
 }
 
-uint16_t next_sub_transition(enum SubState current, char c)
+struct sub_transition sub_next_transition(struct sub_transition transition, char c)
 {
-	enum SubState next = current;
+	enum SubState current = transition.current;
 	switch (current) {
 	case None:
 	{
 		switch (c) {
 		case '{':
-			next = Opening;
+			current = Opening;
 			break;
 		default:
 			break;
@@ -515,10 +526,10 @@ uint16_t next_sub_transition(enum SubState current, char c)
 	{
 		switch (c) {
 		case '{':
-			next = Open;
+			current = Open;
 			break;
 		case '}':
-			next = None;
+			current = None;
 		default:
 			break;
 		}
@@ -528,7 +539,7 @@ uint16_t next_sub_transition(enum SubState current, char c)
 	{
 		switch (c) {
 		case '}':
-			next = Closing;
+			current = Closing;
 			break;
 		default:
 			break;
@@ -539,7 +550,7 @@ uint16_t next_sub_transition(enum SubState current, char c)
 	{
 		switch (c) {
 		case '}':
-			next = Closed;
+			current = Closed;
 			break;
 		default:
 			break;
@@ -550,8 +561,10 @@ uint16_t next_sub_transition(enum SubState current, char c)
 		break;
 	}
 
-	// Packing both states into a single number uniquely identifies a transition.
-	return next << 8 | current;
+	return (struct sub_transition) {
+		.current = current,
+		.previous = transition.current
+	};
 }
 
 enum InstallerCode substitute(char *in, char *out, size_t size)
