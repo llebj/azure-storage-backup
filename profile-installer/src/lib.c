@@ -483,9 +483,14 @@ struct slice next_token(char *in, size_t size)
 		// Terminated on the second '}', which must be included
 		result.size = i + 1;
 	}
-	else {
+	else if (state != Open && state != Closing) {
 		// Read to the end of the buffer
 		result.size = i;
+	}
+	else {
+		// Reached the end of the buffer inside of a substitution token
+		// so we cannot return an incomplete token
+		result.start = NULL;
 	}
 
 	return result;

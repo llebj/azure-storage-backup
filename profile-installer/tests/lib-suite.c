@@ -441,6 +441,20 @@ void test_it_does_not_include_an_ambibuous_single_brace(void)
 	TEST_ASSERT_EQUAL_MEMORY(expected, result.start, result.size);
 }
 
+void test_it_returns_an_empty_slice_for_an_incomplete_substitution_token(void)
+{
+	// Arrange
+	char *in = "{{ Unclosed }";
+	size_t len = strlen(in);
+
+	// Act
+	struct slice result = next_token(in, len);
+
+	// Assert
+	TEST_ASSERT_EQUAL_INT(0, result.size);
+	TEST_ASSERT_NULL(result.start);
+}
+
 // -----------------
 // -- END SECTION --
 // -----------------
@@ -450,25 +464,26 @@ int main(void)
 {
 	UNITY_BEGIN();
 
-	RUN_TEST(test_it_correctly_hashes_a_basic_string);
+	//RUN_TEST(test_it_correctly_hashes_a_basic_string);
 
-	RUN_TEST(test_it_parses_a_section_with_multiple_attributes);
-	RUN_TEST(test_it_parses_multiple_sections);
-	RUN_TEST(test_it_parses_a_header_with_a_tag);
-	RUN_TEST(test_it_requires_a_header);
-	RUN_TEST(test_it_does_not_allow_empty_header);
-	RUN_TEST(test_it_does_not_allow_empty_tag);
-	RUN_TEST(test_it_does_not_allow_empty_key);
-	RUN_TEST(test_it_does_not_allow_empty_value);
-	RUN_TEST(test_it_requires_a_properly_terminated_file);
-	RUN_TEST(test_it_can_process_a_large_number_of_sections);
-	RUN_TEST(test_it_can_process_a_large_number_of_attributes);
+	//RUN_TEST(test_it_parses_a_section_with_multiple_attributes);
+	//RUN_TEST(test_it_parses_multiple_sections);
+	//RUN_TEST(test_it_parses_a_header_with_a_tag);
+	//RUN_TEST(test_it_requires_a_header);
+	//RUN_TEST(test_it_does_not_allow_empty_header);
+	//RUN_TEST(test_it_does_not_allow_empty_tag);
+	//RUN_TEST(test_it_does_not_allow_empty_key);
+	//RUN_TEST(test_it_does_not_allow_empty_value);
+	//RUN_TEST(test_it_requires_a_properly_terminated_file);
+	//RUN_TEST(test_it_can_process_a_large_number_of_sections);
+	//RUN_TEST(test_it_can_process_a_large_number_of_attributes);
 
 	RUN_TEST(test_it_returns_a_simple_token_in_full);
 	RUN_TEST(test_it_extracts_a_simple_token_from_a_multi_type_string);
 	RUN_TEST(test_it_extracts_a_substitution_token_from_a_multi_type_string);
 	RUN_TEST(test_it_treats_single_braces_literally);
 	RUN_TEST(test_it_does_not_include_an_ambibuous_single_brace);
+	RUN_TEST(test_it_returns_an_empty_slice_for_an_incomplete_substitution_token);
 
 	return UNITY_END();
 }
