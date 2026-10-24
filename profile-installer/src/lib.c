@@ -480,7 +480,7 @@ struct slice next_token(char *in, size_t size)
 		}
 	}
 
-	if ((state.current == Closing || state.current == Open) && i == size) {
+	if ((state.current == Closing || state.current == Open) && i >= size) {
 		// Reached the end of the buffer inside of a substitution token
 		// so we cannot return an incomplete token
 		return EMPTY_SLICE;
