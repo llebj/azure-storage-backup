@@ -403,11 +403,12 @@ void test_it_returns_a_simple_token_in_full(void)
 	size_t len = strlen(in);
 
 	// Act
-	struct slice result = next_token(in, len);
+	struct sub_token result = next_token(in, len);
 
 	// Assert
-	TEST_ASSERT_EQUAL_INT(len, result.size);
-	TEST_ASSERT_EQUAL_MEMORY(in, result.start, result.size);
+	TEST_ASSERT_EQUAL_INT(len, result.token.size);
+	TEST_ASSERT_EQUAL_INT(false, result.is_replacement);
+	TEST_ASSERT_EQUAL_MEMORY(in, result.token.start, result.token.size);
 }
 
 void test_it_extracts_a_simple_token_from_a_multi_type_string(void)
@@ -423,14 +424,15 @@ void test_it_extracts_a_simple_token_from_a_multi_type_string(void)
 	snprintf(in, len + 1, "%s%s", expected, end);
 
 	// Act
-	struct slice result = next_token(in, len);
+	struct sub_token result = next_token(in, len);
 
 	// Assert
-	TEST_ASSERT_EQUAL_INT(expected_len, result.size);
-	TEST_ASSERT_EQUAL_MEMORY(expected, result.start, result.size);
+	TEST_ASSERT_EQUAL_INT(expected_len, result.token.size);
+	TEST_ASSERT_EQUAL_INT(false, result.is_replacement);
+	TEST_ASSERT_EQUAL_MEMORY(expected, result.token.start, result.token.size);
 }
 
-void test_it_extracts_a_substitution_token_from_a_multi_type_string(void)
+void test_it_extracts_a_template_token_from_a_multi_type_string(void)
 {
 	// Arrange
 	char *expected = "{{ Sub }}";
@@ -443,11 +445,12 @@ void test_it_extracts_a_substitution_token_from_a_multi_type_string(void)
 	snprintf(in, len + 1, "%s%s", expected, end);
 
 	// Act
-	struct slice result = next_token(in, len);
+	struct sub_token result = next_token(in, len);
 
 	// Assert
-	TEST_ASSERT_EQUAL_INT(expected_len, result.size);
-	TEST_ASSERT_EQUAL_MEMORY(expected, result.start, result.size);
+	TEST_ASSERT_EQUAL_INT(expected_len, result.token.size);
+	TEST_ASSERT_EQUAL_INT(true, result.is_replacement);
+	TEST_ASSERT_EQUAL_MEMORY(expected, result.token.start, result.token.size);
 }
 
 void test_it_treats_single_braces_literally(void)
@@ -457,11 +460,11 @@ void test_it_treats_single_braces_literally(void)
 	size_t len = strlen(in);
 
 	// Act
-	struct slice result = next_token(in, len);
+	struct sub_token result = next_token(in, len);
 
 	// Assert
-	TEST_ASSERT_EQUAL_INT(len, result.size);
-	TEST_ASSERT_EQUAL_MEMORY(in, result.start, result.size);
+	TEST_ASSERT_EQUAL_INT(len, result.token.size);
+	TEST_ASSERT_EQUAL_MEMORY(in, result.token.start, result.token.size);
 }
 
 void test_it_does_not_include_an_ambibuous_single_brace(void)
@@ -477,25 +480,26 @@ void test_it_does_not_include_an_ambibuous_single_brace(void)
 	snprintf(in, len + 1, "%s%s", expected, end);
 
 	// Act
-	struct slice result = next_token(in, len);
+	struct sub_token result = next_token(in, len);
 
 	// Assert
-	TEST_ASSERT_EQUAL_INT(expected_len, result.size);
-	TEST_ASSERT_EQUAL_MEMORY(expected, result.start, result.size);
+	TEST_ASSERT_EQUAL_INT(expected_len, result.token.size);
+	TEST_ASSERT_EQUAL_MEMORY(expected, result.token.start, result.token.size);
 }
 
-void test_it_returns_an_empty_slice_for_an_incomplete_substitution_token(void)
+void test_it_returns_an_empty_token_for_an_incomplete_template_token(void)
 {
 	// Arrange
 	char *in = "{{ Unclosed }";
 	size_t len = strlen(in);
 
 	// Act
-	struct slice result = next_token(in, len);
+	struct sub_token result = next_token(in, len);
 
 	// Assert
-	TEST_ASSERT_EQUAL_INT(0, result.size);
-	TEST_ASSERT_NULL(result.start);
+	TEST_ASSERT_EQUAL_INT(0, result.token.size);
+	TEST_ASSERT_EQUAL_INT(false, result.is_replacement);
+	TEST_ASSERT_NULL(result.token.start);
 }
 
 void test_it_passes_through_tokens_without_a_template(void)
@@ -520,7 +524,7 @@ void test_it_passes_through_tokens_without_a_template(void)
 	TEST_ASSERT_EQUAL_MEMORY(in, out, ctx.out_written);
 }
 
-void test_it_substitutes_a_token_within_a_stream(void)
+void test_it_substitutes_a_template_token_within_a_stream(void)
 {
 	// Arrange
 	const char first[]		= "Hello, ",
@@ -549,7 +553,8 @@ void test_it_substitutes_a_token_within_a_stream(void)
 	};
 
 	// Act
-	enum InstallerCode result = process_stream_sized(&fake_fill, &fake_flush, &ctx, subs, sizeof subs, 32, 32);
+	enum InstallerCode result = process_stream_sized(
+			&fake_fill, &fake_flush, &ctx, subs, sizeof subs / sizeof *subs, 32, 32);
 
 	// Assert
 	TEST_ASSERT_EQUAL_INT(PI_OK, result);
@@ -557,6 +562,14 @@ void test_it_substitutes_a_token_within_a_stream(void)
 	TEST_ASSERT_EQUAL_size_t(sizeof expected - 1, ctx.out_written);
 	TEST_ASSERT_EQUAL_MEMORY(expected, out, ctx.out_written);
 }
+
+// TODO: Test cases for the follogin scenarios:
+// * text across multiple input buffer fills
+// * a token split across multiple input buffer fills
+// * ambiguous final brace
+// * text across multiple output buffer flushes
+// * a substitution across multiple output buffer flushes
+// * all the stuff that can go wrong (input validation, etc...)
 
 // -----------------
 // -- END SECTION --
@@ -582,14 +595,14 @@ int main(void)
 	//RUN_TEST(test_it_can_process_a_large_number_of_attributes);
 
 	//RUN_TEST(test_it_passes_through_tokens_without_a_template);
-	RUN_TEST(test_it_substitutes_a_token_within_a_stream);
+	RUN_TEST(test_it_substitutes_a_template_token_within_a_stream);
 
 	//RUN_TEST(test_it_returns_a_simple_token_in_full);
 	//RUN_TEST(test_it_extracts_a_simple_token_from_a_multi_type_string);
-	//RUN_TEST(test_it_extracts_a_substitution_token_from_a_multi_type_string);
+	//RUN_TEST(test_it_extracts_a_template_token_from_a_multi_type_string);
 	//RUN_TEST(test_it_treats_single_braces_literally);
 	//RUN_TEST(test_it_does_not_include_an_ambibuous_single_brace);
-	//RUN_TEST(test_it_returns_an_empty_slice_for_an_incomplete_substitution_token);
+	//RUN_TEST(test_it_returns_an_empty_token_for_an_incomplete_template_token);
 
 	return UNITY_END();
 }

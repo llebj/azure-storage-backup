@@ -84,7 +84,6 @@ struct scanner {
 uint8_t next_transition(char input, struct state *parser);
 void scanner_step(struct scanner *scanner);
 struct slice scanner_take(struct scanner *scanner);
-struct slice trim(struct slice string);
 void * ensure_space(size_t i, size_t elem_size, void *p, size_t *size);
 
 enum InstallerCode parse_ini(struct slice *buf, struct ini *ini)
@@ -437,7 +436,7 @@ void * ensure_space(size_t i, size_t elem_size, void *p, size_t *current_size)
 // -- SECTION substitution --
 // --------------------------
 
-#define EMPTY_SLICE	(struct slice) {0}
+#define EMPTY_TOKEN	(struct sub_token) {0}
 #define STREAM_BUF_SIZE	4000
 #define IN_SIZE		STREAM_BUF_SIZE
 #define OUT_SIZE	STREAM_BUF_SIZE
@@ -496,39 +495,42 @@ enum InstallerCode process_stream_sized(
 			break;
 		}
 
-		bool needs_replacing = false;
-		struct slice token = next_token(in_ptr, remaining),
-			     replacement = EMPTY_SLICE;
+		struct sub_token in_token = next_token(in_ptr, remaining);
+		struct slice out_token = {
+			.start = in_token.token.start,
+			.size = in_token.token.size
+		};
 
-		for (size_t sub_i = 0; sub_i < subs_size; ++sub_i) {
-			if (strncmp(subs[sub_i].token.start, token.start, token.size) != 0) {
-				continue;
+		if (in_token.is_replacement) {
+			// Strip the `{{` and `}}` surrounding the token contents.
+			out_token.start += 2;
+			out_token.size -= 4;
+			out_token = trim(out_token);
+
+			for (size_t sub_i = 0; sub_i < subs_size; ++sub_i) {
+				if (strncmp(subs[sub_i].token.start,
+							out_token.start,
+							out_token.size) != 0) {
+					continue;
+				}
+				out_token = subs[sub_i].replacement;
 			}
-			needs_replacing = true;
-			replacement = subs[sub_i].replacement;
 		}
 
-		if (!needs_replacing) {
-			memcpy(out_ptr, token.start, token.size);
-			remaining -= token.size;
-			buffered += token.size;
-			in_ptr += token.size;
-			out_ptr += token.size;
-		}
-		else {
-			memcpy(out_ptr, replacement.start, replacement.size);
-			remaining -= replacement.size;
-			buffered += replacement.size;
-			in_ptr += replacement.size;
-			out_ptr += replacement.size;
-		}
+		remaining -= in_token.token.size;
+		in_ptr += in_token.token.size;
+
+		memcpy(out_ptr, out_token.start, out_token.size);
+
+		buffered += out_token.size;
+		out_ptr += out_token.size;
 	}
 	(*flush)(ctx, out, buffered, &written);
 
 	return PI_OK;
 }
 
-struct slice next_token(char *in, size_t size)
+struct sub_token next_token(char *in, size_t size)
 {
 	struct sub_transition state = {
 		.current = None,
@@ -558,25 +560,29 @@ struct slice next_token(char *in, size_t size)
 	if ((state.current == Closing || state.current == Open) && i >= size) {
 		// Reached the end of the buffer inside of a substitution token
 		// so we cannot return an incomplete token
-		return EMPTY_SLICE;
+		return EMPTY_TOKEN;
 	}
 
-	struct slice result = {
-		.start = in,
-		.size = 0
+	struct sub_token result = {
+		.is_replacement = false,
+		.token = (struct slice) {
+			.start = in,
+			.size = 0
+		}
 	};
 	if (state.current == Closed) {
 		// Terminated on the second '}', which must be included
-		result.size = i + 1;
+		result.token.size = i + 1;
+		result.is_replacement = true;
 	}
 	else if (state.current == Open && !is_sub_token || state.current == Opening) {
 		// Needed to look ahead to find the second '{', or read an
 		// ambiguous '{' as the final character in the buffer
-		result.size = i - 1;
+		result.token.size = i - 1;
 	}
 	else {
 		// Read to the end of the buffer
-		result.size = i;
+		result.token.size = i;
 	}
 
 	return result;

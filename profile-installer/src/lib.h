@@ -1,6 +1,7 @@
 #ifndef MAIN
 #define MAIN
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -52,10 +53,16 @@ struct profile {
 	enum ProfileStatus status;
 };
 
+struct sub_token {
+	bool is_replacement;
+	struct slice token;
+};
 struct sub {
 	struct slice token;
 	struct slice replacement;
 };
+
+struct slice trim(struct slice string);
 
 enum InstallerCode parse_ini(struct slice *buf, struct ini *ini);
 
@@ -67,6 +74,6 @@ enum InstallerCode process_stream(
 		void *ctx,
 		struct sub *subs,
 		size_t subs_size);
-struct slice next_token(char *in, size_t size);
+struct sub_token next_token(char *in, size_t size);
 
 #endif
