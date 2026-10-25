@@ -7,6 +7,49 @@
 #include "vendor/unity_internals.h"
 
 #include "../src/lib.h"
+#include "../src/process_stream_internal.h"
+
+struct fake {
+    const char *in;
+    size_t in_size,
+	   in_consumed;
+    char *out;
+    size_t out_size,
+	   out_written;
+};
+
+static enum InstallerCode fake_fill(void *ctx, char *buf, size_t buf_size, size_t *consumed)
+{
+    struct fake *fake = ctx;
+    size_t remaining = fake->in_size - fake->in_consumed;
+
+    *consumed = remaining < buf_size ? remaining : buf_size;
+    memcpy(buf, fake->in + fake->in_consumed, *consumed);
+    fake->in_consumed += *consumed;
+
+    return PI_OK;
+}
+
+static enum InstallerCode fake_flush(void *ctx, char *buf, size_t buf_size, size_t *written)
+{
+    struct fake *fake = ctx;
+
+    TEST_ASSERT_TRUE_MESSAGE(fake->out_written + buf_size <= fake->out_size, "fake output overflow");
+
+    memcpy(fake->out + fake->out_written, buf, buf_size);
+    fake->out_written += buf_size;
+    *written = buf_size;
+
+    return PI_OK;
+}
+
+struct slice slice_from(char *s)
+{
+	return (struct slice) {
+		.start = s,
+		.size = strlen(s)
+	};
+}
 
 void setUp(void)
 {
@@ -455,6 +498,66 @@ void test_it_returns_an_empty_slice_for_an_incomplete_substitution_token(void)
 	TEST_ASSERT_NULL(result.start);
 }
 
+void test_it_passes_through_tokens_without_a_template(void)
+{
+	// Arrange
+	char in[] = "Hello, world",
+	     out[sizeof in] = {0};
+	struct fake ctx = {
+		.in = in,
+		.in_size = sizeof in - 1,
+		.out = out,
+		.out_size = sizeof out - 1
+	};
+
+	// Act
+	enum InstallerCode result = process_stream_sized(&fake_fill, &fake_flush, &ctx, NULL, 0, 32, 32);
+
+	// Assert
+	TEST_ASSERT_EQUAL(PI_OK, result);
+
+	TEST_ASSERT_EQUAL_size_t(sizeof in - 1, ctx.out_written);
+	TEST_ASSERT_EQUAL_MEMORY(in, out, ctx.out_written);
+}
+
+void test_it_substitutes_a_token_within_a_stream(void)
+{
+	// Arrange
+	const char first[]		= "Hello, ",
+	           token[]		= "{{ Token }}",
+		   replacement[]	= "world";
+
+	// `sizeof` includes the null-terminator. Since we have two strings, and we
+	// only require a single terminator, we subtract 1 from the total.
+	char in[sizeof first + sizeof token - 1]		= {0},
+	     out[sizeof first + sizeof replacement - 1]		= {0},
+	     expected[sizeof first + sizeof replacement - 1]	= {0};
+
+	snprintf(in, sizeof in, "%s%s", first, token);
+	snprintf(expected, sizeof expected, "%s%s", first, replacement);
+
+	struct sub subs[1] = {0};
+	subs[0] = (struct sub) {
+		.token = slice_from("Token"),
+		.replacement = slice_from("world")
+	};
+	struct fake ctx = {
+		.in = in,
+		.in_size = sizeof in - 1,
+		.out = out,
+		.out_size = sizeof out - 1
+	};
+
+	// Act
+	enum InstallerCode result = process_stream_sized(&fake_fill, &fake_flush, &ctx, subs, sizeof subs, 32, 32);
+
+	// Assert
+	TEST_ASSERT_EQUAL_INT(PI_OK, result);
+
+	TEST_ASSERT_EQUAL_size_t(sizeof expected - 1, ctx.out_written);
+	TEST_ASSERT_EQUAL_MEMORY(expected, out, ctx.out_written);
+}
+
 // -----------------
 // -- END SECTION --
 // -----------------
@@ -478,12 +581,15 @@ int main(void)
 	//RUN_TEST(test_it_can_process_a_large_number_of_sections);
 	//RUN_TEST(test_it_can_process_a_large_number_of_attributes);
 
-	RUN_TEST(test_it_returns_a_simple_token_in_full);
-	RUN_TEST(test_it_extracts_a_simple_token_from_a_multi_type_string);
-	RUN_TEST(test_it_extracts_a_substitution_token_from_a_multi_type_string);
-	RUN_TEST(test_it_treats_single_braces_literally);
-	RUN_TEST(test_it_does_not_include_an_ambibuous_single_brace);
-	RUN_TEST(test_it_returns_an_empty_slice_for_an_incomplete_substitution_token);
+	//RUN_TEST(test_it_passes_through_tokens_without_a_template);
+	RUN_TEST(test_it_substitutes_a_token_within_a_stream);
+
+	//RUN_TEST(test_it_returns_a_simple_token_in_full);
+	//RUN_TEST(test_it_extracts_a_simple_token_from_a_multi_type_string);
+	//RUN_TEST(test_it_extracts_a_substitution_token_from_a_multi_type_string);
+	//RUN_TEST(test_it_treats_single_braces_literally);
+	//RUN_TEST(test_it_does_not_include_an_ambibuous_single_brace);
+	//RUN_TEST(test_it_returns_an_empty_slice_for_an_incomplete_substitution_token);
 
 	return UNITY_END();
 }

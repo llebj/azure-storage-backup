@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "lib.h"
+#include "process_stream_internal.h"
 
 // ---------------------
 // -- SECTION hashing --
@@ -437,6 +438,9 @@ void * ensure_space(size_t i, size_t elem_size, void *p, size_t *current_size)
 // --------------------------
 
 #define EMPTY_SLICE	(struct slice) {0}
+#define STREAM_BUF_SIZE	4000
+#define IN_SIZE		STREAM_BUF_SIZE
+#define OUT_SIZE	STREAM_BUF_SIZE
 
 enum SubState {
 	None	= 1,
@@ -452,6 +456,77 @@ struct sub_transition {
 };
 
 struct sub_transition sub_next_transition(struct sub_transition transition, char c);
+
+enum InstallerCode process_stream(
+		enum InstallerCode (*fill)(void *, char *, size_t, size_t *),
+		enum InstallerCode (*flush)(void *, char *, size_t, size_t *),
+		void *ctx,
+		struct sub *subs,
+		size_t subs_size)
+{
+	return process_stream_sized(fill, flush, ctx, subs, subs_size, IN_SIZE, OUT_SIZE);
+}
+
+enum InstallerCode process_stream_sized(
+		enum InstallerCode (*fill)(void *, char *, size_t, size_t *),
+		enum InstallerCode (*flush)(void *, char *, size_t, size_t *),
+		void *ctx,
+		struct sub *subs,
+		size_t subs_size,
+		size_t in_size, size_t out_size)
+{
+	char *in,
+	     *out;
+	if ((in = malloc(in_size)) == NULL) {
+		return PI_ALLOC_FAIL;
+	}
+	if ((out = malloc(out_size)) == NULL) {
+		return PI_ALLOC_FAIL;
+	}
+
+	size_t remaining	= 0,
+	       buffered		= 0,
+	       written		= 0;
+	char *in_ptr = in,
+	     *out_ptr = out;
+
+	(*fill)(ctx, in, in_size, &remaining);
+	for ( ; ; ) {
+		if (remaining <= 0) {
+			break;
+		}
+
+		bool needs_replacing = false;
+		struct slice token = next_token(in_ptr, remaining),
+			     replacement = EMPTY_SLICE;
+
+		for (size_t sub_i = 0; sub_i < subs_size; ++sub_i) {
+			if (strncmp(subs[sub_i].token.start, token.start, token.size) != 0) {
+				continue;
+			}
+			needs_replacing = true;
+			replacement = subs[sub_i].replacement;
+		}
+
+		if (!needs_replacing) {
+			memcpy(out_ptr, token.start, token.size);
+			remaining -= token.size;
+			buffered += token.size;
+			in_ptr += token.size;
+			out_ptr += token.size;
+		}
+		else {
+			memcpy(out_ptr, replacement.start, replacement.size);
+			remaining -= replacement.size;
+			buffered += replacement.size;
+			in_ptr += replacement.size;
+			out_ptr += replacement.size;
+		}
+	}
+	(*flush)(ctx, out, buffered, &written);
+
+	return PI_OK;
+}
 
 struct slice next_token(char *in, size_t size)
 {
@@ -565,11 +640,6 @@ struct sub_transition sub_next_transition(struct sub_transition transition, char
 		.current = current,
 		.previous = transition.current
 	};
-}
-
-enum InstallerCode substitute(char *in, char *out, size_t size)
-{
-	return PI_OK;
 }
 
 // -----------------

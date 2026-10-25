@@ -43,9 +43,9 @@ LIB_OBJS := $(addprefix $(BUILD_DIR)/, lib-suite.o lib.o unity.o)
 
 $(BUILD_DIR)/lib-suite.out:  $(LIB_OBJS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/lib-suite.out $(LIB_OBJS)
-$(BUILD_DIR)/lib-suite.o: lib-suite.c ../src/lib.h $(UNITY_HEADERS) 
+$(BUILD_DIR)/lib-suite.o: lib-suite.c ../src/lib.h ../src/process_stream_internal.h $(UNITY_HEADERS) 
 	$(CC) $(CFLAGS) -c lib-suite.c -o $(BUILD_DIR)/lib-suite.o
-$(BUILD_DIR)/lib.o: ../src/lib.c ../src/lib.h | $(BUILD_DIR)
+$(BUILD_DIR)/lib.o: ../src/lib.c ../src/lib.h ../src/process_stream_internal.h | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c ../src/lib.c -o $(BUILD_DIR)/lib.o
 
 

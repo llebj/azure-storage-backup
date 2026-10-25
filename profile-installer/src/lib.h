@@ -42,6 +42,16 @@ struct section {
 	struct slice value;
 };
 
+struct profile {
+	uint32_t id;
+	uint64_t fingerprint;
+	uint32_t version;
+	char *name;
+	char *source;
+	uint8_t trigger_type;
+	enum ProfileStatus status;
+};
+
 struct sub {
 	struct slice token;
 	struct slice replacement;
@@ -51,6 +61,12 @@ enum InstallerCode parse_ini(struct slice *buf, struct ini *ini);
 
 uint64_t poly_hash(char *string);
 
+enum InstallerCode process_stream(
+		enum InstallerCode (*fill)(void *ctx, char *, size_t, size_t *),
+		enum InstallerCode (*flush)(void *ctx, char *, size_t, size_t *),
+		void *ctx,
+		struct sub *subs,
+		size_t subs_size);
 struct slice next_token(char *in, size_t size);
 
 #endif
