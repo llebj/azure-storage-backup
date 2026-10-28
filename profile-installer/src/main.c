@@ -365,8 +365,9 @@ char * make_message(char *format, ...)
 	char *p = NULL;
 	va_list ap;
 
-	/* Determine required size.  */
-
+	// `vsnprintf` can be used to see how many bytes would have been
+	// written, without actually doing an writing, by passing 0 in for
+	// `size`. This can then be used to allocate a buffer for writing.
 	va_start(ap, format);
 	n = vsnprintf(p, size, format, ap);
 	va_end(ap);
@@ -375,7 +376,8 @@ char * make_message(char *format, ...)
 		return NULL;
 	}
 
-	size = (size_t) n + 1;      /* One extra byte for '\0' */
+	// One extra byte for '\0'
+	size = (size_t) n + 1;
 	p = malloc(size);
 	if (p == NULL) {
 		return NULL;
