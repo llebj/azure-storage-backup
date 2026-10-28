@@ -8,19 +8,20 @@
 #define SIZE_BUF	4
 
 enum InstallerCode {
-	PI_OK = 0,
-	PI_FAIL = 1,
-	PI_ALLOC_FAIL = 2,
-	PI_READ_FAIL = 3,
-	PI_PARSE_FAIL = 4
+	PI_OK		= 0,
+	PI_FAIL		= 1,
+	PI_ALLOC_FAIL	= 2,
+	PI_READ_FAIL	= 3,
+	PI_WRITE_FAIL	= 4,
+	PI_PARSE_FAIL	= 5
 };
 enum ProfileStatus {
 	Active,
 	Retired
 };
 enum TriggerType {
-	PreInstall = 1,
-	PostInstall = 2
+	PreInstall	= 1,
+	PostInstall	= 2
 };
 
 struct slice {

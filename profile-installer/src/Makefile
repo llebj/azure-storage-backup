@@ -26,7 +26,7 @@ $(BUILD_DIR)/db-interface.o: db-interface.h lib.h vendor/sqlite3/sqlite3.h | $(B
 
 
 LIB_CFLAGS := $(CFLAGS) $(shell pkg-config --cflags libsystemd)
-$(BUILD_DIR)/lib.o: lib.c lib.h | $(BUILD_DIR)
+$(BUILD_DIR)/lib.o: lib.c lib.h process_stream_internal.h | $(BUILD_DIR)
 	$(CC) $(LIB_CFLAGS) -c lib.c -o $(BUILD_DIR)/lib.o
 
 $(BUILD_DIR)/sqlite3.o: vendor/sqlite3/sqlite3.c vendor/sqlite3/sqlite3.h | $(BUILD_DIR)
